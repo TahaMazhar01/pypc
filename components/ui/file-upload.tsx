@@ -18,7 +18,7 @@ export const ACCEPTED_DOCUMENTS =
  */
 export function FileUpload({
   label = 'Attach document',
-  hint = 'PDF or Word document, up to 5 MB.',
+  hint = 'PDF or Word document, up to 4 MB.',
   onUploaded,
   className,
   disabled
@@ -36,6 +36,11 @@ export function FileUpload({
   const [dragging, setDragging] = useState(false)
 
   async function upload(file: File) {
+    if (file.size > 4 * 1024 * 1024) {
+      setState('error')
+      setError('File is too large. Maximum size is 4 MB.')
+      return
+    }
     setState('uploading')
     setError(null)
 

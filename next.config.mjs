@@ -30,6 +30,7 @@ const nextConfig = {
   },
 
   experimental: {
+    ...(process.env.UI_PREVIEW_ONLY === 'true' ? { outputFileTracingIncludes: { '/*': ['./prisma/preview.db'] } } : {}),
     serverActions: {
       bodySizeLimit: '5mb'
     },

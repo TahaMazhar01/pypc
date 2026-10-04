@@ -55,6 +55,15 @@ async function readRole(token: string | undefined): Promise<string | null> {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  if (process.env.UI_PREVIEW_ONLY === 'true') {
+    if (pathname.startsWith('/api/') || !['GET', 'HEAD'].includes(request.method)) {
+      return NextResponse.json({ error: 'This is a design preview. Submissions and account actions are disabled.' }, { status: 403 })
+    }
+    if (PROTECTED_PREFIXES.some(prefix => pathname === prefix || pathname.startsWith(prefix + '/'))) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+    return NextResponse.next()
+  }
 
   const isProtected = PROTECTED_PREFIXES.some(
     prefix => pathname === prefix || pathname.startsWith(`${prefix}/`)
@@ -107,5 +116,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/dashboard/:path*', '/admin/:path*', '/login', '/register']
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)']
 }

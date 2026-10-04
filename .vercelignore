@@ -1,0 +1,13 @@
+.git
+.next
+node_modules
+.env*
+backups
+reports
+private
+public/documents
+public/reports
+*.db
+*.db-*
+prisma/schema.local.prisma
+prisma/schema.import.prisma

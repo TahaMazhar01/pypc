@@ -4,7 +4,7 @@ const { spawnSync } = require('node:child_process');
 require('@next/env').loadEnvConfig(process.cwd());
 const url = process.env.DATABASE_URL || '';
 const sqlite = url.startsWith('file:');
-if (process.env.VERCEL && sqlite) {
+if (process.env.VERCEL && sqlite && process.env.UI_PREVIEW_ONLY !== 'true') {
   console.error('Vercel requires a hosted DATABASE_URL. Local SQLite is not persistent on Vercel.');
   process.exit(1);
 }

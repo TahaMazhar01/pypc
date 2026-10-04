@@ -64,3 +64,6 @@ private/certificates/*
 # Generated database compatibility schemas
 prisma/schema.local.prisma
 prisma/schema.import.prisma
+
+.vercel
+.env*

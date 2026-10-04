@@ -12,6 +12,8 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 
 import { prisma } from '@/lib/prisma'
+import { cloudUploadsConfigured } from '@/lib/uploads'
+import { list } from '@vercel/blob'
 import { mailStatus } from '@/lib/email/mailer'
 import { getGatewayStatuses } from '@/lib/payments'
 
@@ -106,36 +108,43 @@ export async function collectSystemHealth(): Promise<HealthReport> {
 
   // ------------------------------------------------------------------ storage
   try {
-    await fs.mkdir(UPLOAD_DIR, { recursive: true })
-    await fs.mkdir(CERT_DIR, { recursive: true })
-    const probe = path.join(UPLOAD_DIR, `.write-test-${Date.now()}`)
-    await fs.writeFile(probe, 'ok')
-    await fs.unlink(probe)
+    if (cloudUploadsConfigured()) {
+      await list({ prefix: 'resumes/', limit: 1 })
+      checks.push({ id: 'storage', label: 'Private document storage', state: 'ok',
+        detail: 'Private cloud storage is connected. Documents are served only to their owner or authorised staff.' })
+    } else {
+      if (process.env.VERCEL) throw new Error('Private cloud storage is not configured.')
+      await fs.mkdir(UPLOAD_DIR, { recursive: true })
+      await fs.mkdir(CERT_DIR, { recursive: true })
+      const probe = path.join(UPLOAD_DIR, `.write-test-${Date.now()}`)
+      await fs.writeFile(probe, 'ok')
+      await fs.unlink(probe)
 
-    const resumes = existsSync(UPLOAD_DIR)
-      ? readdirSync(UPLOAD_DIR).filter(name => !name.startsWith('.')).length
-      : 0
-    const certificates = existsSync(CERT_DIR) ? readdirSync(CERT_DIR).filter(n => !n.startsWith('.')).length : 0
+      const resumes = existsSync(UPLOAD_DIR)
+        ? readdirSync(UPLOAD_DIR).filter(name => !name.startsWith('.')).length
+        : 0
+      const certificates = existsSync(CERT_DIR) ? readdirSync(CERT_DIR).filter(n => !n.startsWith('.')).length : 0
 
-    checks.push({
-      id: 'storage',
-      label: 'Private document storage',
-      state: 'ok',
-      detail:
-        'Writable, and deliberately outside the public web root — CVs and generated certificates are only served through an authenticated route.',
-      facts: [
-        { label: 'Uploaded CVs', value: String(resumes) },
-        { label: 'Generated certificate files', value: String(certificates) },
-        { label: 'Location', value: 'private/uploads/resumes' }
-      ]
-    })
+      checks.push({
+        id: 'storage',
+        label: 'Private document storage',
+        state: 'ok',
+        detail:
+          'Writable, and deliberately outside the public web root — CVs and generated certificates are only served through an authenticated route.',
+        facts: [
+          { label: 'Uploaded CVs', value: String(resumes) },
+          { label: 'Generated certificate files', value: String(certificates) },
+          { label: 'Location', value: 'private/uploads/resumes' }
+        ]
+      })
+    }
   } catch (error) {
     checks.push({
       id: 'storage',
       label: 'Private document storage',
       state: 'fail',
       detail:
-        'The private storage directory is not writable. Uploads (CVs, visa documents) will fail until this is fixed — check the folder permissions for the user running the app.',
+        'Private document storage is unavailable. Check the cloud storage connection or local folder permissions.',
       facts: [{ label: 'Error', value: error instanceof Error ? error.message.slice(0, 160) : 'unknown' }]
     })
   }

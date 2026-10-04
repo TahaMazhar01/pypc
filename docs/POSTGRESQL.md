@@ -67,3 +67,12 @@ CI retains the local SQLite runtime suite and adds a separate PostgreSQL 16 job
 that deploys the migration twice (idempotency), seeds a disposable database and
 builds the application against PostgreSQL. No hosted verification is claimed
 until that database is actually connected.
+
+## Private uploads configuration
+
+Vercel uploads now use a private Blob store through BLOB_READ_WRITE_TOKEN (or
+BLOB_STORE_ID with OIDC). The authenticated download route remains unchanged.
+Documents are limited to 4 MB to fit the serverless multipart request limit.
+Local development without Blob configuration still uses private/uploads.
+The private storage roundtrip and refusal of anonymous downloads were verified.
+SMTP sender credentials are still pending confirmation from the project team.

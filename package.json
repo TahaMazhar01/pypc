@@ -5,7 +5,7 @@
   "description": "Official digital platform of the Pakistan Youth Parliamentary Council (PYPC)",
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/prisma-command.cjs generate && next build",
+    "build": "node scripts/build.cjs",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
@@ -50,6 +50,7 @@
     "@hookform/resolvers": "^3.9.0",
     "@prisma/client": "^5.20.0",
     "@types/three": "^0.186.0",
+    "@vercel/blob": "^2.8.0",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",

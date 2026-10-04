@@ -1,6 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
+import { get, put } from '@vercel/blob'
+
+export function cloudUploadsConfigured() {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID)
+}
 
 /**
  * Private document storage.
@@ -12,7 +17,7 @@ import path from 'node:path'
  * filename alone.
  */
 
-export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+export const MAX_UPLOAD_BYTES = 4 * 1024 * 1024
 
 export const ALLOWED_UPLOAD_TYPES: Record<string, { ext: string; label: string; magic: number[][] }> = {
   'application/pdf': {
@@ -98,8 +103,16 @@ export async function storeDocument(file: File, ownerId: string): Promise<Stored
   const storedName = `${safeOwner}-${randomUUID()}.${resolvedType.ext}`
   const directory = uploadDir()
 
-  await mkdir(directory, { recursive: true })
-  await writeFile(path.join(directory, storedName), bytes)
+  if (cloudUploadsConfigured()) {
+    await put('resumes/' + storedName, bytes, {
+      access: 'private', addRandomSuffix: false,
+      contentType: contentTypeFor(storedName)
+    })
+  } else {
+    if (process.env.VERCEL) throw new Error('Private document storage is not configured. Please contact support.')
+    await mkdir(directory, { recursive: true })
+    await writeFile(path.join(directory, storedName), bytes)
+  }
 
   const originalName = file.name.replace(/[^\w.\- ]+/g, '_').slice(0, 120) || `document.${resolvedType.ext}`
 
@@ -124,6 +137,13 @@ export async function readStoredDocument(storedName: string) {
   const resolved = resolveStoredDocument(storedName)
   if (!resolved) return null
 
+  if (cloudUploadsConfigured()) {
+    const result = await get('resumes/' + storedName, { access: 'private', useCache: false })
+    if (!result || result.statusCode !== 200) return null
+    const bytes = Buffer.from(await new Response(result.stream).arrayBuffer())
+    return { bytes, path: resolved }
+  }
+  if (process.env.VERCEL) return null
   try {
     const bytes = await readFile(resolved)
     return { bytes, path: resolved }

@@ -32,7 +32,7 @@ export function mailMode(): MailMode {
  */
 export function devMailVisible() {
   const flag = (process.env.EMAIL_DEV_MODE ?? '').toLowerCase() === 'true'
-  return flag && mailMode() === 'dev'
+  return flag && process.env.NODE_ENV !== 'production' && mailMode() === 'dev'
 }
 
 let cachedTransporter: Transporter | null = null
@@ -87,13 +87,16 @@ export async function sendMail(input: SendMailInput): Promise<SendMailResult> {
         subject: input.subject,
         body: input.text,
         transport,
-        status: transport === 'smtp' ? 'QUEUED' : 'SENT',
-        sentAt: transport === 'smtp' ? null : new Date()
+        status: transport === 'smtp' ? 'QUEUED' : process.env.NODE_ENV === 'production' ? 'FAILED' : 'SENT',
+        sentAt: transport === 'smtp' || process.env.NODE_ENV === 'production' ? null : new Date()
       }
     })
     .catch(() => null)
 
   if (transport === 'dev') {
+    if (process.env.NODE_ENV === 'production') {
+      return { ok: false, transport, error: 'Email delivery is not configured. Please contact support.', outboxId: record?.id }
+    }
     console.info(
       `[email:dev] to=${input.to} subject="${input.subject}"\n${input.text}\n--- end of message ---`
     )

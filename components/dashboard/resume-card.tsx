@@ -86,7 +86,7 @@ export function ResumeCard({ initialUrl }: { initialUrl: string | null }) {
       <div className="mt-5">
         <FileUpload
           label={resumeUrl ? 'Replace CV' : 'Upload CV'}
-          hint="PDF or Word document, up to 5 MB."
+          hint="PDF or Word document, up to 4 MB."
           onUploaded={(url, name) => {
             if (url) persist(url, name ?? 'upload')
           }}

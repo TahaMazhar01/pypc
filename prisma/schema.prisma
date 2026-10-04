@@ -1,0 +1,594 @@
+// ============================================================================
+// PYPC — Pakistan Youth Parliamentary Council
+// Prisma schema — development uses SQLite so the project runs with zero setup.
+// Production: change provider to "postgresql" and point DATABASE_URL at
+// Supabase / Neon / RDS. All fields below are PostgreSQL-safe.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// USERS, ROLES, AUTH
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  // Stored in E.164 (+923001234567). Never store a free-text phone number.
+  phone        String?
+  // ISO-3166-1 alpha-2 of the number's dialling country, e.g. PK.
+  phoneCountry String?
+  // Country of residence (ISO alpha-2).
+  country      String?
+  countryName  String?
+  cnic         String?
+  dateOfBirth  DateTime?
+  gender       String?
+  city         String?
+  province     String?
+  institution  String?
+  fieldOfStudy String?
+  profession   String?
+  bio          String?
+  avatarUrl    String?
+  // Private CV/resume path served only to the owner and staff.
+  resumeUrl    String?
+
+  // MEMBER | EXECUTIVE | MODERATOR | ADMIN | SUPER_ADMIN
+  role   String @default("MEMBER")
+  // PENDING | ACTIVE | SUSPENDED | REJECTED
+  status String @default("ACTIVE")
+
+  emailVerifiedAt     DateTime?
+  lastLoginAt         DateTime?
+  lastLoginIp         String?
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  sessionVersion      Int       @default(0)
+
+  // Optional two-factor authentication (TOTP, RFC 6238 — compatible with Google
+  // Authenticator, Microsoft Authenticator, Authy, 1Password and every other
+  // standards-compliant app). A secret is only trusted once a code generated
+  // from it has been verified, which `twoFactorConfirmedAt` records.
+  twoFactorSecret        String?
+  twoFactorConfirmedAt   DateTime?
+  // One-time recovery codes, stored hashed — never in clear text.
+  twoFactorRecoveryCodes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships        Membership[]
+  orders             Order[]
+  applications       Application[]
+  certificates       Certificate[]            @relation("CertificateRecipient")
+  issuedCerts        Certificate[]            @relation("CertificateIssuer")
+  eventSignups       EventRegistration[]
+  notifications      Notification[]
+  aiConversations    AiConversation[]
+  visaLetterRequests VisaLetterRequest[]
+  emailTokens        EmailVerificationToken[]
+  outboxEmails       EmailOutbox[]
+
+  @@index([role])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// MEMBERSHIP
+// ---------------------------------------------------------------------------
+
+model MembershipPlan {
+  id             String  @id @default(cuid())
+  code           String  @unique
+  name           String
+  tier           String
+  tagline        String
+  description    String
+  pricePkr       Int
+  priceUsd       Int
+  durationMonths Int     @default(12)
+  features       String // JSON array of strings
+  benefits       String // JSON array of strings
+  isPopular      Boolean @default(false)
+  isActive       Boolean @default(true)
+  sortOrder      Int     @default(0)
+
+  memberships Membership[]
+  orders      Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Membership {
+  id        String    @id @default(cuid())
+  userId    String
+  planId    String
+  // ACTIVE | PENDING | EXPIRED | CANCELLED
+  status    String    @default("PENDING")
+  startsAt  DateTime  @default(now())
+  expiresAt DateTime?
+  orderId   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan MembershipPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Order {
+  id          String    @id @default(cuid())
+  reference   String    @unique
+  userId      String
+  planId      String
+  provider    String // STRIPE | JAZZCASH | EASYPAISA | FREE | SIMULATED
+  currency    String // PKR | USD
+  amountMinor Int
+  // PENDING | PAID | FAILED | CANCELLED | REFUNDED
+  status      String    @default("PENDING")
+  providerRef String?
+  payload     String?
+  paidAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan MembershipPlan @relation(fields: [planId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// PROGRAMMES, EVENTS, OPPORTUNITIES
+// ---------------------------------------------------------------------------
+
+model Programme {
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  title         String
+  category      String
+  summary       String
+  description   String
+  objectives    String // JSON array
+  outcomes      String // JSON array
+  structure     String // JSON array
+  mode          String    @default("Hybrid")
+  durationWeeks Int?
+  seats         Int?
+  feePkr        Int?      @default(0)
+  feeUsd        Int?      @default(0)
+  isFeatured    Boolean   @default(false)
+  isActive      Boolean   @default(true)
+  sortOrder     Int       @default(0)
+  startsAt      DateTime?
+  endsAt        DateTime?
+
+  applications Application[]
+  certificates Certificate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([category])
+}
+
+model Event {
+  id                   String    @id @default(cuid())
+  slug                 String    @unique
+  title                String
+  description          String
+  eventType            String // Conference | Workshop | Bootcamp | Webinar | Ceremony
+  mode                 String    @default("Onsite")
+  venue                String?
+  city                 String?
+  startsAt             DateTime
+  endsAt               DateTime?
+  capacity             Int       @default(100)
+  registrationDeadline DateTime?
+  isPublished          Boolean   @default(true)
+  isFeatured           Boolean   @default(false)
+
+  registrations EventRegistration[]
+  certificates  Certificate[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([startsAt])
+}
+
+model EventRegistration {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  // REGISTERED | ATTENDED | CANCELLED | WAITLISTED
+  status    String   @default("REGISTERED")
+  createdAt DateTime @default(now())
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+}
+
+model Opportunity {
+  id           String    @id @default(cuid())
+  slug         String    @unique
+  title        String
+  organisation String
+  type         String // Fellowship | Scholarship | Internship | Job | Grant | Competition
+  location     String
+  mode         String    @default("Onsite")
+  deadline     DateTime?
+  stipend      String?
+  summary      String
+  description  String
+  requirements String // JSON array
+  applyUrl     String?
+  isFeatured   Boolean   @default(false)
+  isActive     Boolean   @default(true)
+
+  applications Application[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// APPLICATIONS
+// ---------------------------------------------------------------------------
+
+model Application {
+  id            String    @id @default(cuid())
+  reference     String    @unique
+  userId        String
+  programmeId   String?
+  opportunityId String?
+  eventId       String?
+  type          String // PROGRAMME | OPPORTUNITY | EVENT | MEMBERSHIP
+  fullName      String
+  email         String
+  phone         String
+  country       String?
+  city          String?
+  motivation    String
+  experience    String?
+  // Optional uploaded CV: private path, served to the applicant and staff only.
+  resumeUrl     String?
+  // PENDING | UNDER_REVIEW | SHORTLISTED | APPROVED | REJECTED
+  status        String    @default("PENDING")
+  adminNotes    String?
+  reviewedById  String?
+  reviewedAt    DateTime?
+  submittedAt   DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  programme   Programme?   @relation(fields: [programmeId], references: [id])
+  opportunity Opportunity? @relation(fields: [opportunityId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// CERTIFICATES + QR VERIFICATION
+// ---------------------------------------------------------------------------
+
+model Certificate {
+  id            String    @id @default(cuid())
+  code          String    @unique // PYPC-XXXX-XXXX-XXXX (printed on the QR)
+  title         String
+  recipientName String
+  description   String
+  grade         String?
+  userId        String?
+  programmeId   String?
+  eventId       String?
+  issuedById    String?
+  issueDate     DateTime  @default(now())
+  expiresAt     DateTime?
+  // VALID | REVOKED | EXPIRED
+  status        String    @default("VALID")
+  revokedReason String?
+  revokedAt     DateTime?
+
+  verificationCount Int       @default(0)
+  lastVerifiedAt    DateTime?
+  downloadCount     Int       @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User?      @relation("CertificateRecipient", fields: [userId], references: [id])
+  issuer    User?      @relation("CertificateIssuer", fields: [issuedById], references: [id])
+  programme Programme? @relation(fields: [programmeId], references: [id])
+  event     Event?     @relation(fields: [eventId], references: [id])
+
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// NOTIFICATIONS, AUDIT LOG, CONTACT, AI
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  type      String    @default("INFO")
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// A university, college, NGO, government office or company asking to work with
+/// PYPC — the front door for the MoU / campus-chapter process described on
+/// /partnerships. Deliberately separate from User: an institution makes a request
+/// before (and often without) any account existing, and the secretariat tracks it
+/// as correspondence, not as a membership.
+model PartnershipRequest {
+  id              String    @id @default(cuid())
+  /// Public reference quoted in correspondence, e.g. PYPC-MOU-4KQ7Z2.
+  reference       String    @unique
+  institutionName String
+  /// UNIVERSITY | COLLEGE | SCHOOL | NGO | GOVERNMENT | CORPORATE | OTHER
+  institutionType String
+  country         String?
+  countryIso      String?
+  city            String?
+  website         String?
+  contactName     String
+  contactRole     String
+  contactEmail    String
+  contactPhone    String?
+  /// JSON array of PARTNERSHIP_INTERESTS values.
+  interests       String
+  studentsReached String?
+  message         String
+  /// SUBMITTED | UNDER_REVIEW | APPROVED | DECLINED | WITHDRAWN
+  status          String    @default("SUBMITTED")
+  adminNotes      String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([contactEmail])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorEmail String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   String?
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  // Hash chain — makes the log tamper-evident rather than merely append-only.
+  // Each row stores the hash of the previous row plus its own canonical content,
+  // so deleting or editing an entry breaks every hash after it and the
+  // /admin/audit page reports the break. See lib/audit.ts.
+  prevHash String?
+  hash     String?
+
+  // NOTE: actorId is deliberately *not* a foreign key. An audit entry is
+  // evidence: it must remain byte-for-byte as written. A relation with
+  // ON DELETE SET NULL would silently rewrite actorId the moment an account is
+  // removed, which changes the row's content and invalidates its hash — the
+  // chain would then report a break that nobody caused by hand. Keeping the id
+  // as a plain historical value means deleting a user cannot touch the log at
+  // all. Use `actorEmail` to read it back to a person.
+
+  // One successor per link: two concurrent writes can never claim the same
+  // predecessor, because the second insert is refused by the database and the
+  // writer retries against the new tail. (NULL prevails for the first link.)
+  @@unique([prevHash])
+  @@index([action])
+  @@index([createdAt])
+  @@index([hash])
+}
+
+model ContactMessage {
+  id         String   @id @default(cuid())
+  name       String
+  email      String
+  phone      String?
+  subject    String
+  message    String
+  country    String?
+  countryIso String?
+  // NEW | IN_PROGRESS | RESOLVED
+  status     String   @default("NEW")
+  createdAt  DateTime @default(now())
+}
+
+model AiConversation {
+  id         String   @id @default(cuid())
+  userId     String?
+  language   String   @default("en") // detected language: en | ur | roman-ur
+  sessionKey String   @unique
+  title      String   @default("New conversation")
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user     User?       @relation(fields: [userId], references: [id])
+  messages AiMessage[]
+}
+
+model AiMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String // user | assistant
+  content        String
+  source         String // openai | knowledge_base | escalation
+  language       String   @default("en") // detected language: en | ur | roman-ur
+  createdAt      DateTime @default(now())
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId])
+}
+
+// ---------------------------------------------------------------------------
+// INTERNATIONAL DELEGATE SUPPORT
+// ---------------------------------------------------------------------------
+
+model VisaLetterRequest {
+  id             String    @id @default(cuid())
+  reference      String    @unique // PYPC-VISA-XXXXXX
+  userId         String
+  fullName       String
+  email          String
+  phone          String?
+  nationality    String
+  passportNumber String?
+  // VISITOR_VISA | CONFERENCE_INVITATION | ACADEMIC_VISIT
+  letterType     String
+  purpose        String
+  eventName      String?
+  embassyCity    String?
+  travelFrom     DateTime?
+  travelTo       DateTime?
+  // Optional supporting document (CV, passport bio page) - private path.
+  documentUrl    String?
+  // PENDING | NEED_INFO | ISSUED | REJECTED
+  status         String    @default("PENDING")
+  adminNotes     String?
+  issuedAt       DateTime?
+  reviewedById   String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// EMAIL OWNERSHIP VERIFICATION
+// ---------------------------------------------------------------------------
+
+model EmailVerificationToken {
+  id          String    @id @default(cuid())
+  userId      String
+  // SHA-256 of the token — the raw token only ever exists in the email.
+  tokenHash   String    @unique
+  // Six-digit fallback code, also hashed.
+  codeHash    String
+  // SIGNUP | RESEND | EMAIL_CHANGE | PASSWORD_RESET
+  purpose     String    @default("SIGNUP")
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  attempts    Int       @default(0)
+  requestedIp String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([purpose])
+}
+
+// ---------------------------------------------------------------------------
+// OUTBOUND MAIL (auditable record of every message the platform sends)
+// ---------------------------------------------------------------------------
+
+model EmailOutbox {
+  id        String    @id @default(cuid())
+  userId    String?
+  to        String
+  subject   String
+  body      String
+  // smtp | dev
+  transport String
+  status    String    @default("QUEUED") // QUEUED | SENT | FAILED
+  error     String?
+  sentAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([to])
+  @@index([status])
+}
+
+// ---------------------------------------------------------------------------
+// RATE LIMITING (survives restarts, unlike an in-memory counter)
+// ---------------------------------------------------------------------------
+
+model RateLimitCounter {
+  id          String   @id @default(cuid())
+  // e.g. "register:ip:1.2.3.4" or "login:email:a@b.com"
+  key         String
+  windowStart DateTime
+  count       Int      @default(1)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([key, windowStart])
+  @@index([key])
+}
+
+/// One row per gateway event received. The unique constraint on (provider,
+/// eventId) is what makes webhook handling idempotent: a retried delivery cannot
+/// activate a membership twice or issue a second receipt.
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  provider    String
+  eventId     String
+  eventType   String?
+  /// Full payload, kept for reconciliation and dispute handling.
+  payload     String
+  /// Amount in minor units as reported by the gateway, when present.
+  amountMinor Int?
+  currency    String?
+  processedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@unique([provider, eventId])
+  @@index([provider, processedAt])
+}
+
+/// Newsletter subscribers. Double opt-in: a row is only usable once
+/// `confirmedAt` is set by the confirmation link the subscriber clicks.
+model NewsletterSubscriber {
+  id          String    @id @default(cuid())
+  email       String    @unique
+  name        String?
+  // newsletter | events | opportunities | research
+  interests   String    @default("newsletter")
+  status      String    @default("PENDING") // PENDING | CONFIRMED | UNSUBSCRIBED
+  token       String    @unique
+  confirmedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+}

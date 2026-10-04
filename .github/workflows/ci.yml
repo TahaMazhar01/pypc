@@ -1,0 +1,162 @@
+# PYPC — continuous integration.
+#
+# Every push and pull request to main runs the same gates the launch checklist
+# requires: types, lint, secret scan, a production build, then the full runtime
+# suite against that build (routes, health, auth, authz, payments, connectivity,
+# contrast, responsive and the IMUN 2027 page).
+#
+# Because CI runs `next start`, the payment check exercises its production
+# fail-closed path (developer gateway refused, no orphan order). The full
+# order → payment → membership chain is walked by the same script against
+# `npm run dev` — that is the run recorded in docs/VERIFICATION.md.
+#
+# No credentials are needed: the workflow builds against a throwaway SQLite
+# database created by `prisma db push` and seeded by `npm run db:seed`. Live
+# payment and mail keys therefore never have to be stored in this repository or
+# in GitHub secrets for CI to be meaningful.
+name: PYPC CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DATABASE_URL: file:./prisma/ci.db
+  NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+  # The application reads AUTH_SECRET (see lib/auth.ts and middleware.ts). A
+  # workflow-level value wins over .env, so CI never signs sessions with the
+  # placeholder that ships in .env.example.
+  AUTH_SECRET: ci-only-secret-not-used-in-production-0123456789a
+  EMAIL_DEV_MODE: 'true'
+  PAYMENTS_SIMULATION_MODE: 'true'
+  TRUST_PROXY_HEADERS: 'false'
+  # The AI assistant audit asks ~40 questions from one address; the visitor rate
+  # limit would (correctly) stop it. This token is CI-only and worthless outside
+  # the job — the application ignores the bypass header unless it matches.
+  AI_AUDIT_BYPASS_TOKEN: ci-only-audit-token-0123456789abcdef
+
+jobs:
+  verify:
+    name: Types, lint, secrets, build and runtime suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Prepare local configuration
+        run: cp .env.example .env
+
+      - name: Secret scan
+        run: npm run scan:secrets
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Prepare a throwaway database
+        run: |
+          npx prisma generate
+          npx prisma db push --skip-generate
+          npm run db:seed
+
+      - name: Production build
+        run: npm run build
+
+      - name: Start the server
+        run: |
+          npx next start -p 3000 -H 0.0.0.0 > server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf -o /dev/null http://127.0.0.1:3000/; then
+              echo "server ready after ${i}s"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "server did not start"; cat server.log; exit 1
+
+      - name: Runtime suite
+        env:
+          BASE: http://127.0.0.1:3000
+        run: |
+          npm run check:routes
+          npm run check:health
+          npm run check:auth
+          npm run check:authz
+          npm run check:connectivity
+          npm run check:payments
+          npm run check:contrast
+          npm run check:responsive
+          npm run check:imun
+          npm run check:social
+          npm run check:ai
+          npm run check:perf
+          npm run check:suites
+
+      - name: Backup and restore drill
+        run: |
+          npm run db:backup -- --label ci
+          npm run db:restore-test
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-diagnostics
+          path: |
+            server.log
+            reports/
+            backups/
+          retention-days: 14
+
+  package:
+    name: Build the shippable ZIP
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: cp .env.example .env && npx prisma generate && npx prisma db push --skip-generate && npm run db:seed
+
+      - name: Stage the package
+        run: |
+          mkdir -p dist/pypc-website
+          tar --exclude=node_modules --exclude=.next --exclude=.git --exclude=backups \
+              --exclude=reports --exclude=dist -cf - . | (cd dist/pypc-website && tar -xf -)
+
+      - name: Refuse to ship a build directory or a live key
+        run: |
+          test ! -d dist/pypc-website/node_modules || { echo "node_modules must not ship"; exit 1; }
+          test ! -d dist/pypc-website/.next || { echo ".next must not ship"; exit 1; }
+          ! grep -rE "sk_live_|BEGIN [A-Z ]*PRIVATE KEY" dist/pypc-website || { echo "live key in package"; exit 1; }
+
+      - name: Zip
+        run: cd dist && zip -qr ../pypc-website.zip pypc-website && cd .. && unzip -t pypc-website.zip > /dev/null && ls -lh pypc-website.zip
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pypc-website-zip
+          path: pypc-website.zip
+          retention-days: 30

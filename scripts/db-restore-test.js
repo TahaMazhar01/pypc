@@ -29,6 +29,12 @@ const ROOT = path.resolve(__dirname, '..')
 process.chdir(ROOT)
 
 const { PrismaClient } = require('@prisma/client')
+require('@next/env').loadEnvConfig(ROOT)
+if (process.env.DATABASE_URL && !process.env.DATABASE_URL.startsWith('file:')) {
+  console.error('This command is SQLite-only. For PostgreSQL use pg_dump / pg_restore; see docs/POSTGRESQL.md.');
+  process.exit(1)
+}
+
 
 /**
  * Reads DATABASE_URL the way the application does: from the environment, falling

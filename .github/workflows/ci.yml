@@ -74,8 +74,8 @@ jobs:
 
       - name: Prepare a throwaway database
         run: |
-          npx prisma generate
-          npx prisma db push --skip-generate
+          npm run db:generate
+          npm run db:push -- --skip-generate
           npm run db:seed
 
       - name: Production build
@@ -138,7 +138,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - run: cp .env.example .env && npx prisma generate && npx prisma db push --skip-generate && npm run db:seed
+      - run: cp .env.example .env && npm run db:generate && npm run db:push -- --skip-generate && npm run db:seed
 
       - name: Stage the package
         run: |
@@ -160,3 +160,35 @@ jobs:
           name: pypc-website-zip
           path: pypc-website.zip
           retention-days: 30
+
+  postgres:
+    name: PostgreSQL migration and application build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pypc
+          POSTGRES_PASSWORD: ci-only-postgres
+          POSTGRES_DB: pypc_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pypc -d pypc_test"
+          --health-interval 10s --health-timeout 5s --health-retries 5
+    env:
+      DATABASE_URL: postgresql://pypc:ci-only-postgres@localhost:5432/pypc_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: cp .env.example .env
+      - run: npm run db:generate
+      - run: npm run db:migrate
+      - run: npm run db:migrate
+      - run: npm run db:seed
+      - run: npm run typecheck
+      - run: npm run build

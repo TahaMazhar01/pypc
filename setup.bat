@@ -37,9 +37,9 @@ if exist "prisma\dev.db" (
 ) else (
   echo prisma\dev.db was missing - creating a fresh database.
 )
-call npx prisma generate
+call npm run db:generate
 if errorlevel 1 goto failed
-call npx prisma db push --skip-generate
+call npm run db:push -- --skip-generate
 if errorlevel 1 goto failed
 
 echo.

@@ -1,3 +1,7 @@
+# PostgreSQL deployment
+
+The production Prisma schema now targets PostgreSQL. See [the migration and deployment guide](docs/POSTGRESQL.md). Local SQLite remains available through the npm database commands until a hosted connection is configured.
+
 # Pakistan Youth Parliamentary Council — Official Platform (PYPC)
 
 A complete, runnable web platform for the **Pakistan Youth Parliamentary Council**: public website, member accounts, membership payments (JazzCash / Easypaisa / Stripe adapters), programmes, events, opportunities, applications, QR-verified certificates, an AI assistant and a full admin panel.

@@ -46,8 +46,8 @@ if [ -f prisma/dev.db ]; then
 else
   echo "prisma/dev.db was missing — creating a fresh database."
 fi
-npx prisma generate
-npx prisma db push --skip-generate
+npm run db:generate
+npm run db:push -- --skip-generate
 
 step "Seeding demo accounts and content (safe to repeat)"
 npm run db:seed

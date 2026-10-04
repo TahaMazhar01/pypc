@@ -5,15 +5,15 @@
   "description": "Official digital platform of the Pakistan Youth Parliamentary Council (PYPC)",
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && next build",
+    "build": "node scripts/prisma-command.cjs generate && next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
+    "db:generate": "node scripts/prisma-command.cjs generate",
+    "db:push": "node scripts/prisma-command.cjs db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:reset": "prisma db push --force-reset && tsx prisma/seed.ts",
-    "db:studio": "prisma studio",
+    "db:reset": "node scripts/prisma-command.cjs db push --force-reset && tsx prisma/seed.ts",
+    "db:studio": "node scripts/prisma-command.cjs studio",
     "db:backup": "node scripts/db-backup.js",
     "db:restore-test": "node scripts/db-restore-test.js",
     "db:clean": "node scripts/db-clean.js",
@@ -42,7 +42,9 @@
     "build:og": "python3 scripts/build-og-images.py",
     "check:2fa": "node scripts/check-2fa.mjs",
     "audit:rechain": "node scripts/rechain-audit.mjs",
-    "audit:rechain:local": "node scripts/audit-rechain-local.mjs"
+    "audit:rechain:local": "node scripts/audit-rechain-local.mjs",
+    "db:migrate": "prisma migrate deploy",
+    "db:import:sqlite": "node scripts/import-sqlite-backup.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",

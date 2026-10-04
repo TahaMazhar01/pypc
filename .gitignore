@@ -60,3 +60,7 @@ private/certificates/*
 # Organizational documents withheld from GitHub at the owner's request
 /public/documents/
 /public/reports/
+
+# Generated database compatibility schemas
+prisma/schema.local.prisma
+prisma/schema.import.prisma

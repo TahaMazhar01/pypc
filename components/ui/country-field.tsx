@@ -27,6 +27,7 @@ export type CountryFieldProps = {
   buttonClassName?: string
   /** Show the dialling code next to the name (used by the phone field). */
   showDial?: boolean
+  compact?: boolean
   disabled?: boolean
   'aria-describedby'?: string
 }
@@ -52,6 +53,7 @@ export function CountryField({
   className,
   buttonClassName,
   showDial = false,
+  compact = false,
   disabled,
   'aria-describedby': ariaDescribedBy
 }: CountryFieldProps) {
@@ -147,14 +149,14 @@ export function CountryField({
       >
         <span className="text-base leading-none">{displayContent(selected?.flag)}</span>
         <span className="min-w-0 flex-1 truncate">
-          {displayContent(selected?.name)}
-          {displayContent(showDial && selected ? <span className="ml-1 text-slate-500">{displayContent(selected.dial)}</span> : null)}
+          {displayContent(compact ? selected?.dial : selected?.name)}
+          {displayContent(showDial && !compact && selected ? <span className="ml-1 text-slate-500">{displayContent(selected.dial)}</span> : null)}
         </span>
         <ChevronDown size={16} className={cn('shrink-0 text-slate-500 transition', open && 'rotate-180')} />
       </button>
 
       {displayContent(open ? (
-        <div className="absolute left-0 right-0 top-full z-40 mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-elevated">
+        <div className="absolute left-0 top-full z-40 w-full min-w-[260px] mt-2 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-elevated">
           <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2">
             <Search size={15} className="shrink-0 text-slate-500" />
             <input

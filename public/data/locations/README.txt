@@ -1,0 +1,1 @@
+Location suggestions generated from country-state-city-data 1.2.0 (ISC), https://github.com/solominh/country_state_city_data. Major Saudi cities supplement missing data. Lists are suggestions, not exhaustive; manual city entry remains available. Regenerate: node scripts/generate-locations.cjs

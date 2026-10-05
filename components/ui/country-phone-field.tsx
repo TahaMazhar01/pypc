@@ -91,12 +91,14 @@ export function CountryPhoneField({
             }
           }}
           showDial
+          compact
+          className="w-[112px] shrink-0"
           placeholder="Country"
-          buttonClassName="w-[132px] shrink-0 sm:w-[150px]"
+          buttonClassName="!px-2"
           aria-describedby={`${id}-hint`}
         />
 
-        <div className="relative flex-1">
+        <div className="relative min-w-0 flex-1">
           <input
             id={id}
             name={name}
@@ -120,9 +122,7 @@ export function CountryPhoneField({
           />
 
           <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2">
-            {displayContent(isEmpty || !touched ? (
-              <span className="font-mono text-xs text-slate-500">{displayContent(dialCode)}</span>
-            ) : isValid ? (
+            {displayContent(isEmpty || !touched ? null : isValid ? (
               <CheckCircle2 size={17} className="text-emerald-600" />
             ) : (
               <AlertTriangle size={17} className="text-rose-500" />
@@ -136,7 +136,7 @@ export function CountryPhoneField({
           <span className="font-semibold text-rose-600">{displayContent(message)}</span>
         ) : isValid && check.ok ? (
           <span className="font-semibold text-emerald-700">
-            {displayContent(check.international)} · {displayContent(check.type.replace('_', ' ').toLowerCase())}
+            {displayContent(check.international)}
           </span>
         ) : (
           hint ?? `Select your country, then enter the number without the country code (${dialCode}).`

@@ -19,7 +19,6 @@ import {
   UserPlus
 } from 'lucide-react'
 import { registerSchema, type RegisterInput } from '@/lib/validations'
-import { PROVINCES } from '@/lib/constants'
 import { Field, Input, Select } from '@/components/ui/field'
 import { Button } from '@/components/ui/button'
 import { CountryField } from '@/components/ui/country-field'
@@ -70,6 +69,8 @@ export function RegisterForm() {
   const [pending, setPending] = useState<PendingState | null>(null)
   const [emailState, setEmailState] = useState(emailFeedback(''))
   const [country, setCountry] = useState('PK')
+  const [locations, setLocations] = useState<{ name: string; cities: string[] }[]>([])
+  const [locationsLoading, setLocationsLoading] = useState(true)
   const formOpenedAt = useRef<number>(Date.now())
   const [humanCheck, setHumanCheck] = useState<{ token: string; answer: string } | null>(null)
 
@@ -90,6 +91,26 @@ export function RegisterForm() {
     }
   })
 
+  const province = watch('province') ?? ''
+  const citySuggestions = locations.find(region => region.name === province)?.cities ?? []
+  function changeCountry(next: string) {
+    if (next === country) return
+    setCountry(next)
+    setLocations([])
+    setValue('province', '')
+    setValue('city', '')
+    setValue('phoneCountry', next)
+  }
+  useEffect(() => {
+    const controller = new AbortController()
+    setLocationsLoading(true)
+    fetch('/data/locations/' + country + '.json', { signal: controller.signal })
+      .then(response => response.ok ? response.json() : { regions: [] })
+      .then(data => { if (!controller.signal.aborted) setLocations(data.regions ?? []) })
+      .catch(() => { if (!controller.signal.aborted) setLocations([]) })
+      .finally(() => { if (!controller.signal.aborted) setLocationsLoading(false) })
+    return () => controller.abort()
+  }, [country])
   const phoneCountry = watch('phoneCountry') ?? country
   const phoneValue = watch('phone') ?? ''
   const passwordValue = watch('password') ?? ''
@@ -246,14 +267,14 @@ export function RegisterForm() {
         ) : null)}
       </Field>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4">
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-slate-800">
             Country of residence <span className="text-rose-600">*</span>
           </label>
           <CountryField
             value={country}
-            onChange={setCountry}
+            onChange={changeCountry}
             placeholder="Select your country"
             aria-describedby="country-hint"
           />
@@ -276,19 +297,20 @@ export function RegisterForm() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Province / Region" error={errors.province?.message}>
-          <Select {...register('province')}>
-            <option value="">Select region</option>
-            {PROVINCES.map(province => (
-              <option key={province} value={province}>
-                {displayContent(province)}
-              </option>
-            ))}
-          </Select>
+        <Field label="Province / Region" htmlFor="province" error={errors.province?.message}>
+          {locationsLoading || locations.length ? (
+            <Select id="province" autoComplete="address-level1" disabled={locationsLoading}
+              {...register('province', { onChange: () => setValue('city', '') })}>
+              <option value="">{locationsLoading ? 'Loading regions…' : 'Select region'}</option>
+              {locations.map(region => <option key={region.name} value={region.name}>{region.name}</option>)}
+            </Select>
+          ) : <Input id="province" {...register('province')} placeholder="Enter your region" autoComplete="address-level1" />}
         </Field>
-
-        <Field label="City" error={errors.city?.message}>
-          <Input {...register('city')} placeholder="Rawalpindi" autoComplete="address-level2" />
+        <Field label="City" htmlFor="city" error={errors.city?.message}>
+          <Input id="city" {...register('city')} list="registration-cities" placeholder="Enter or choose your city" autoComplete="address-level2" />
+          <datalist id="registration-cities">
+            {citySuggestions.map(city => <option key={city} value={city} />)}
+          </datalist>
         </Field>
       </div>
 

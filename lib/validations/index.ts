@@ -1,5 +1,4 @@
 import { z } from 'zod'
-import { PROVINCES } from '@/lib/constants'
 import { DEFAULT_COUNTRY_ISO, findCountryByName, isValidCountryIso } from '@/lib/data/countries'
 import { checkPhone } from '@/lib/validation/phone'
 import { isDisposableEmail, isRoleMailbox, normaliseEmail } from '@/lib/validation/email'
@@ -108,7 +107,7 @@ export const registerSchema = z
     phone: phoneField,
     password: strongPasswordSchema,
     confirmPassword: z.string(),
-    province: z.enum([...PROVINCES] as [string, ...string[]]).optional(),
+    province: z.string().trim().max(100).optional(),
     city: z.string().trim().max(80).optional(),
     institution: z.string().trim().max(140).optional(),
     profession: z.string().trim().max(120).optional(),

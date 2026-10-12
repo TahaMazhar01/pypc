@@ -1,6 +1,7 @@
+import { hasPermission } from '@/lib/permissions'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { createSessionToken, isAdmin, sessionCookieOptions } from '@/lib/auth'
+import { createSessionToken, sessionCookieOptions } from '@/lib/auth'
 import { verifyEmailSchema } from '@/lib/validations'
 import { notify, recordAudit } from '@/lib/audit'
 import { consumeEmailVerification } from '@/lib/auth/verification'
@@ -83,7 +84,7 @@ export async function POST(request: Request) {
     ok: true,
     email: user.email,
     role: user.role,
-    redirectTo: isAdmin(user.role) ? '/admin' : '/dashboard'
+    redirectTo: hasPermission(user, 'dashboard.read') ? '/admin' : '/dashboard'
   })
 
   response.cookies.set({ ...sessionCookieOptions, value: token })

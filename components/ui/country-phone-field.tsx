@@ -74,7 +74,7 @@ export function CountryPhoneField({
     <div>
       {displayContent(label ? (
         <label htmlFor={id} className="mb-1.5 block text-sm font-semibold text-slate-800">
-          {displayContent(label)} {displayContent(required ? <span className="text-rose-600">*</span> : null)}
+          {displayContent(label)} {displayContent(required ? <span aria-hidden="true" className="text-rose-600">*</span> : null)}
         </label>
       ) : null)}
 
@@ -107,8 +107,8 @@ export function CountryPhoneField({
             autoComplete={autoComplete}
             value={value}
             required={required}
-            aria-invalid={touched && !isValid && !isEmpty}
-            aria-describedby={`${id}-hint`}
+            aria-invalid={Boolean(error) || (touched && !isValid && !isEmpty)}
+            aria-describedby={`${id}-hint${error ? ' ' + id + '-error' : ''}`}
             onBlur={() => {
               setTouched(true)
               if (!isEmpty) onValidityChange?.(check.ok, check.ok ? check.e164 : undefined)
@@ -143,7 +143,7 @@ export function CountryPhoneField({
         ))}
       </p>
 
-      {displayContent(error ? <p className="mt-1.5 text-xs font-semibold text-rose-600">{displayContent(error)}</p> : null)}
+      {displayContent(error ? <p id={`${id}-error`} role="alert" className="mt-1.5 text-xs font-semibold text-rose-600">{displayContent(error)}</p> : null)}
     </div>
   )
 }

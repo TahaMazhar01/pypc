@@ -1,7 +1,7 @@
 
 import { displayContent } from '@/lib/display-content'
 import Link from 'next/link'
-import { HeroOrbit } from '@/components/features/hero-orbit'
+import { HeroOrbit, type OrbitSlide } from '@/components/features/hero-orbit'
 import { ArrowRight, ShieldCheck } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
 
@@ -10,7 +10,7 @@ import { LiveActivityBar } from '@/components/features/live-activity-bar'
 export type HeroStats = { members: number; certificates: number; programmes: number; events: number; opportunities: number }
 
 /** Original hero information, presented as a calm editorial opening. */
-export function HomeHero3D({ stats }: { stats: HeroStats }) {
+export function HomeHero3D({ stats, slides }: { stats: HeroStats; slides?: OrbitSlide[] }) {
   const metrics = [{label:'Member target',value:'5,000',fallback:'Founding cohort'}, {label:'Programme target',value:'25',fallback:'First cohort open'}, {label:'Certificate target',value:'70+',fallback:'Issued on completion'}, {label:'Event target',value:'100+',fallback:'Calendar soon'}]
   return (
     <section className="editorial-hero">
@@ -28,7 +28,7 @@ export function HomeHero3D({ stats }: { stats: HeroStats }) {
             <Link href="/conferences">Conferences ↗</Link><Link href="/courses">Courses ↗</Link><Link href="/international">International ↗</Link>
           </nav>
         </div>
-        <HeroOrbit />
+        <HeroOrbit slides={slides} />
       </div>
       <div className="container">
         <p className="mt-5 text-xs text-slate-500">Our ambition: 5,000 members, 25 programmes, 70+ certificates and 100+ events. These are future targets.</p><dl className="editorial-metrics">{metrics.map(item => <div key={item.label}><dd>{displayContent(typeof item.value === 'string' || item.value > 0 ? item.value : item.fallback)}</dd><dt>{displayContent(item.label)}</dt></div>)}</dl>

@@ -17,10 +17,11 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function OpportunitiesPage({
-  searchParams
+  searchParams: searchParamsPromise
 }: {
-  searchParams: { type?: string }
+  searchParams: Promise<{ type?: string }>
 }) {
+  const searchParams = await searchParamsPromise
   const type = searchParams.type
 
   const [opportunities, types] = await Promise.all([

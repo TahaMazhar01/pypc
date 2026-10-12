@@ -3,9 +3,11 @@ import { displayContent } from '@/lib/display-content'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Badge, Card, StatCard } from '@/components/ui/card'
-import { CertificateControls, IssueCertificateForm } from '@/components/admin/admin-controls'
+import { IssueCertificateForm } from '@/components/admin/admin-controls'
+import { CertificateEditor } from '@/components/admin/certificate-editor'
 import { prisma } from '@/lib/prisma'
-import { requireAdminPage } from '@/lib/auth'
+import { requirePermissionPage } from '@/lib/auth'
+import { hasPermission } from '@/lib/permissions'
 import { formatDate, formatDateTime } from '@/lib/utils'
 import { Icon } from '@/components/ui/icon'
 
@@ -13,7 +15,7 @@ export const metadata: Metadata = { title: 'Certificates' }
 export const dynamic = 'force-dynamic'
 
 export default async function AdminCertificatesPage() {
-  await requireAdminPage()
+  const actor = await requirePermissionPage('certificates.read')
 
   const [certificates, programmes, events] = await Promise.all([
     prisma.certificate.findMany({
@@ -55,7 +57,7 @@ export default async function AdminCertificatesPage() {
         </p>
 
         <div className="mt-5">
-          <IssueCertificateForm programmes={programmes} events={events} />
+          {hasPermission(actor, 'certificates.issue') ? <IssueCertificateForm programmes={programmes} events={events} /> : <p className="text-sm text-slate-500">You have read-only certificate access.</p>}
         </div>
       </Card>
 
@@ -109,7 +111,7 @@ export default async function AdminCertificatesPage() {
                   Open public record →
                 </Link>
 
-                <CertificateControls certificateId={certificate.id} status={certificate.status} />
+                {hasPermission(actor, 'certificates.manage') ? <CertificateEditor certificate={{ id: certificate.id, code: certificate.code, title: certificate.title, recipientName: certificate.recipientName, description: certificate.description, grade: certificate.grade, status: certificate.status }} /> : null}
               </div>
             </div>
           </Card>

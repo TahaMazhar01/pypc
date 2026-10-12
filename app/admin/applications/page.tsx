@@ -4,23 +4,23 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { FileText } from 'lucide-react'
 import { Badge, Card } from '@/components/ui/card'
-import { ApplicationControls } from '@/components/admin/admin-controls'
+import { ReviewControls } from '@/components/admin/review-controls'
 import { prisma } from '@/lib/prisma'
-import { requireUser, isStaff } from '@/lib/auth'
+import { requirePermissionPage } from '@/lib/auth'
+import { hasPermission } from '@/lib/permissions'
 import { APPLICATION_STATUSES } from '@/lib/constants'
 import { formatDateTime, humanise } from '@/lib/utils'
-import { redirect } from 'next/navigation'
 
 export const metadata: Metadata = { title: 'Applications' }
 export const dynamic = 'force-dynamic'
 
 export default async function AdminApplicationsPage({
-  searchParams
+  searchParams: searchParamsPromise
 }: {
-  searchParams: { status?: string; type?: string }
+  searchParams: Promise<{ status?: string; type?: string }>
 }) {
-  const staff = await requireUser()
-  if (!isStaff(staff.role) && !['ADMIN', 'SUPER_ADMIN'].includes(staff.role)) redirect('/dashboard')
+  const searchParams = await searchParamsPromise
+  const actor = await requirePermissionPage('applications.read')
 
   const status = searchParams.status
   const type = searchParams.type
@@ -136,11 +136,11 @@ export default async function AdminApplicationsPage({
               <div className="rounded-xl border border-slate-100 p-4">
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Decision</p>
                 <div className="mt-3">
-                  <ApplicationControls
-                    applicationId={application.id}
+                  {hasPermission(actor, 'applications.review') ? (<ReviewControls kind="application"
+                    id={application.id}
                     status={application.status}
                     notes={application.adminNotes}
-                  />
+                  />) : null}
                 </div>
 
                 {displayContent(application.reviewedAt ? (

@@ -44,6 +44,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
   }
 
+  if (body && typeof body === 'object' && ['role', 'permissions', 'customRoleId', 'status', 'emailVerifiedAt', 'sessionVersion'].some(key => Object.hasOwn(body, key))) {
+    return NextResponse.json({ error: 'Account access cannot be assigned during registration.' }, { status: 422 })
+  }
   const parsed = registerSchema.safeParse(body)
 
   if (!parsed.success) {
@@ -141,7 +144,7 @@ export async function POST(request: Request) {
           email: existing.email,
           alreadyRegistered: true,
           message:
-            'This address already has a pending account. We have emailed a fresh verification code.',
+            mailStatus().localPreview ? 'This address has a pending preview account. No email was sent; the verification message stays in the local outbox.' : 'This address already has a pending account. We have emailed a fresh verification code.',
           delivery: deliveryNotice(verification.delivered),
           devCode: devMailVisible() ? verification.code : undefined,
           devLink: devMailVisible() ? verification.link : undefined
@@ -196,7 +199,7 @@ export async function POST(request: Request) {
     await notify({
       userId: user.id,
       title: 'Verify your email to activate your account',
-      body: `We sent a six-digit code to ${user.email}. It expires in ${verification.expiresMinutes} minutes.`,
+      body: mailStatus().localPreview ? 'Your preview account is pending. Outgoing email is disabled, so no verification message was sent to your inbox.' : `We sent a six-digit code to ${user.email}. It expires in ${verification.expiresMinutes} minutes.`,
       type: 'INFO',
       href: '/verify-email'
     })
@@ -250,6 +253,7 @@ export async function POST(request: Request) {
 
 function deliveryNotice(delivered: boolean) {
   const status = mailStatus()
+  if (status.localPreview) return status.message
   if (delivered && status.transport === 'smtp') {
     return `Verification email sent from ${status.from}. Check your inbox and spam folder.`
   }

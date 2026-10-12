@@ -19,12 +19,14 @@ export function VerificationCodeForm({
   devCode,
   devLink,
   token,
+  localPreview = false,
   onVerified
 }: {
   email: string
   devCode?: string
   devLink?: string
   token?: string
+  localPreview?: boolean
   onVerified?: (redirectTo?: string) => void
 }) {
   const [code, setCode] = useState('')
@@ -101,7 +103,7 @@ export function VerificationCodeForm({
         return
       }
 
-      setNotice(data?.message ?? 'A new code is on its way.')
+      setNotice(data?.message ?? (localPreview ? 'Outgoing email is disabled in this local preview. No message was sent to your inbox.' : 'A new code is on its way.'))
       setLocalDevCode(data?.devCode)
       setLocalDevLink(data?.devLink)
       setSecondsLeft(60)
@@ -121,14 +123,15 @@ export function VerificationCodeForm({
         <div className="min-w-0">
           <h2 className="text-base font-extrabold text-primary-900">Enter your verification code</h2>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            Six digits sent to <strong className="break-all">{displayContent(email)}</strong>. The code expires in 30 minutes
-            and can only be used once.
+            {localPreview ? <>Outgoing email is disabled in this local preview. No code was emailed to <strong className="break-all">{displayContent(email)}</strong>. Your account remains pending verification.</> : <>Six digits sent to <strong className="break-all">{displayContent(email)}</strong>. The code expires in 30 minutes and can only be used once.</>}
           </p>
         </div>
       </div>
 
       <form
         className="mt-5 flex flex-wrap items-center gap-3"
+        method="post"
+        action="/api/auth/verify-email"
         onSubmit={event => {
           event.preventDefault()
           void submit(code)
@@ -203,7 +206,7 @@ export function VerificationCodeForm({
       ) : null)}
 
       <p className="mt-5 border-t border-slate-100 pt-4 text-xs leading-6 text-slate-500">
-        Nothing arriving? Check the spam folder, confirm the address is spelled correctly, or contact{displayContent(' ')}
+        {localPreview ? 'Resending only captures another local message. To review the dashboard, use the provided preview account. For email delivery, contact ' : 'Nothing arriving? Check the spam folder, confirm the address is spelled correctly, or contact '}
         <Link href="/contact" className="font-bold text-primary underline decoration-gold-300">
           the secretariat
         </Link>

@@ -1,23 +1,24 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { getCurrentUser, isAdmin } from '@/lib/auth'
-import { notify, recordAudit } from '@/lib/audit'
+import { authorize, apiError, assertActor, auditMutation, readJson, transaction } from '@/lib/admin-api'
+import { notify } from '@/lib/audit'
 
 const bodySchema = z.object({
   certificateId: z.string().min(1),
-  action: z.enum(['REVOKE', 'REINSTATE', 'DELETE']),
-  reason: z.string().max(500).optional()
-})
+  action: z.enum(['REVOKE', 'REINSTATE', 'DELETE', 'UPDATE']),
+  reason: z.string().max(500).optional(),
+  details: z.object({ title: z.string().trim().min(3).max(180), recipientName: z.string().trim().min(2).max(180), description: z.string().trim().min(10).max(5000), grade: z.string().trim().max(100).nullable() }).strict().optional()
+}).strict()
 
 /** PATCH /api/admin/certificates — revoke, reinstate or delete a certificate. */
 export async function PATCH(request: Request) {
-  const admin = await getCurrentUser()
-  if (!admin || !isAdmin(admin.role)) {
-    return NextResponse.json({ error: 'Admin access required.' }, { status: 403 })
-  }
+  let admin
+  try { admin = await authorize(request, 'certificates.manage') } catch (error) { return apiError(error) }
 
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null))
+  let body
+  try { body = await readJson(request) } catch (error) { return apiError(error) }
+  const parsed = bodySchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: 'certificateId and a valid action are required.' }, { status: 422 })
   }
@@ -27,58 +28,37 @@ export async function PATCH(request: Request) {
   const certificate = await prisma.certificate.findUnique({ where: { id: certificateId } })
   if (!certificate) return NextResponse.json({ error: 'Certificate not found.' }, { status: 404 })
 
+  if (action === 'UPDATE') {
+    if (!parsed.data.details) return NextResponse.json({ error: 'Certificate details are required.' }, { status: 422 })
+    const details = parsed.data.details
+    try {
+      await transaction(async tx => {
+        await assertActor(tx, admin, 'certificates.manage')
+        await tx.certificate.update({ where: { id: certificateId }, data: details })
+        await auditMutation(tx, admin, request, 'CERTIFICATE_UPDATED', 'Certificate', certificateId, { code: certificate.code, fields: Object.keys(details) })
+      })
+      return NextResponse.json({ ok: true })
+    } catch (error) { return apiError(error) }
+  }
+
   if (action === 'DELETE') {
-    if (admin.role !== 'SUPER_ADMIN') {
-      // Safer default: revoke instead of destroying the audit trail.
-      const revoked = await prisma.certificate.update({
-        where: { id: certificateId },
-        data: {
-          status: 'REVOKED',
-          revokedAt: new Date(),
-          revokedReason: reason ?? 'Revoked by administrator'
-        }
-      })
-
-      await recordAudit({
-        actorId: admin.id,
-        actorEmail: admin.email,
-        action: 'CERTIFICATE_REVOKED',
-        entityType: 'Certificate',
-        entityId: certificateId,
-        metadata: { code: certificate.code, reason },
-        request
-      })
-
-      return NextResponse.json({
-        ok: true,
-        certificate: revoked,
-        message: 'Only a super admin can delete. The certificate was revoked instead.'
-      })
-    }
-
-    await prisma.certificate.delete({ where: { id: certificateId } })
-
-    await recordAudit({
-      actorId: admin.id,
-      actorEmail: admin.email,
-      action: 'CERTIFICATE_DELETED',
-      entityType: 'Certificate',
-      entityId: certificateId,
-      metadata: { code: certificate.code },
-      request
-    })
-
-    return NextResponse.json({ ok: true, deleted: true })
+    return NextResponse.json({ error: 'Issued verification records are retained. Revoke the certificate instead; it can be reinstated later.' }, { status: 409 })
   }
 
   const revoked = action === 'REVOKE'
 
-  const updated = await prisma.certificate.update({
+  let updated
+  try { updated = await transaction(async tx => {
+    await assertActor(tx, admin, 'certificates.manage')
+    const result = await tx.certificate.update({
     where: { id: certificateId },
     data: revoked
       ? { status: 'REVOKED', revokedAt: new Date(), revokedReason: reason ?? 'Revoked by administrator' }
       : { status: 'VALID', revokedAt: null, revokedReason: null }
-  })
+    })
+    await auditMutation(tx, admin, request, revoked ? 'CERTIFICATE_REVOKED' : 'CERTIFICATE_REINSTATED', 'Certificate', certificateId, { code: certificate.code, reason })
+    return result
+  }) } catch (error) { return apiError(error) }
 
   if (certificate.userId) {
     await notify({
@@ -91,16 +71,6 @@ export async function PATCH(request: Request) {
       href: '/dashboard/certificates'
     })
   }
-
-  await recordAudit({
-    actorId: admin.id,
-    actorEmail: admin.email,
-    action: revoked ? 'CERTIFICATE_REVOKED' : 'CERTIFICATE_REINSTATED',
-    entityType: 'Certificate',
-    entityId: certificateId,
-    metadata: { code: certificate.code, reason },
-    request
-  })
 
   return NextResponse.json({ ok: true, certificate: updated })
 }

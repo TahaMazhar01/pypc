@@ -1,3 +1,4 @@
+import { isSameOrigin, crossOriginResponse } from '@/lib/security/request'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
@@ -15,6 +16,7 @@ const bodySchema = z.object({
  * at a document this member actually owns.
  */
 export async function POST(request: Request) {
+  if (!isSameOrigin(request)) return crossOriginResponse()
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 })
 

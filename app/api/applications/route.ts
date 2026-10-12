@@ -41,6 +41,14 @@ export async function POST(request: Request) {
 
   const data = parsed.data
 
+  // A known ID is not authorization to apply to draft or withdrawn content.
+  const targets = [data.programmeId, data.opportunityId, data.eventId].filter(Boolean)
+  if (data.type !== 'MEMBERSHIP' && targets.length !== 1) return NextResponse.json({ error: 'Select one published item.' }, { status: 422 })
+  if (data.type === 'PROGRAMME' && (!data.programmeId || !(await prisma.programme.findFirst({ where: { id: data.programmeId, isActive: true }, select: { id: true } })))) return NextResponse.json({ error: 'Programme unavailable.' }, { status: 404 })
+  if (data.type === 'OPPORTUNITY' && (!data.opportunityId || !(await prisma.opportunity.findFirst({ where: { id: data.opportunityId, isActive: true }, select: { id: true } })))) return NextResponse.json({ error: 'Opportunity unavailable.' }, { status: 404 })
+  if (data.type === 'EVENT' && (!data.eventId || !(await prisma.event.findFirst({ where: { id: data.eventId, isPublished: true }, select: { id: true } })))) return NextResponse.json({ error: 'Event unavailable.' }, { status: 404 })
+  if (data.type === 'MEMBERSHIP' && targets.length) return NextResponse.json({ error: 'Invalid membership application.' }, { status: 422 })
+
   // Normalise the phone number to E.164 with its verified dialling country.
   const phoneResult = checkPhone(data.phone, data.phoneCountry)
   if (!phoneResult.ok) {

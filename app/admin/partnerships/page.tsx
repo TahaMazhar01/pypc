@@ -1,13 +1,13 @@
 
 import { displayContent } from '@/lib/display-content'
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
 import { Building2, Mail, Phone, Users } from 'lucide-react'
 import { Badge, Card } from '@/components/ui/card'
 import { prisma } from '@/lib/prisma'
-import { isAdmin, isStaff, requireUser } from '@/lib/auth'
+import { requirePermissionPage } from '@/lib/auth'
+import { hasPermission } from '@/lib/permissions'
 import { formatDateTime, humanise } from '@/lib/utils'
-import { PartnershipStatusControl } from '@/components/admin/partnership-status-control'
+import { ReviewControls } from '@/components/admin/review-controls'
 import {
   PARTNERSHIP_INTEREST_LABELS,
   PARTNERSHIP_STATUS_LABELS,
@@ -26,8 +26,7 @@ function tone(status: string): 'success' | 'info' | 'warning' | 'danger' {
 }
 
 export default async function AdminPartnershipsPage() {
-  const user = await requireUser()
-  if (!isStaff(user.role) && !isAdmin(user.role)) redirect('/dashboard')
+  const actor = await requirePermissionPage('partnerships.read')
 
   const requests = await prisma.partnershipRequest.findMany({
     orderBy: { createdAt: 'desc' },
@@ -157,11 +156,11 @@ export default async function AdminPartnershipsPage() {
                 </p>
               )}
 
-              <PartnershipStatusControl
-                requestId={item.id}
+              {hasPermission(actor, 'partnerships.review') ? (<ReviewControls kind="partnership"
+                id={item.id}
                 status={item.status}
-                adminNotes={item.adminNotes}
-              />
+                notes={item.adminNotes}
+              />) : null}
             </Card>
           )
         })}

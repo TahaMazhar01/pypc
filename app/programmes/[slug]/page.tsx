@@ -15,9 +15,12 @@ import { parseJsonArray } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await paramsPromise
   const programme = await prisma.programme.findUnique({ where: { slug: params.slug } }).catch(() => null)
   const pillar = featuredPillars.find(item => item.slug === params.slug)
+
+  if (programme && !programme.isActive) return { title: 'Programme not found' }
 
   if (!programme && !pillar) return { title: 'Programme not found' }
 
@@ -27,7 +30,8 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   }
 }
 
-export default async function ProgrammeDetailPage({ params }: { params: { slug: string } }) {
+export default async function ProgrammeDetailPage({ params: paramsPromise }: { params: Promise<{ slug: string }> }) {
+  const params = await paramsPromise
   const [programme, user] = await Promise.all([
     prisma.programme.findUnique({ where: { slug: params.slug } }).catch(() => null),
     getCurrentUser()
@@ -36,7 +40,7 @@ export default async function ProgrammeDetailPage({ params }: { params: { slug: 
   // A thematic pillar may exist before its programme record is published.
   const pillar = featuredPillars.find(item => item.slug === params.slug)
 
-  if (!programme && !pillar) notFound()
+  if ((programme && !programme.isActive) || (!programme && !pillar)) notFound()
 
   const objectives = parseJsonArray(programme?.objectives)
   const outcomes = parseJsonArray(programme?.outcomes)

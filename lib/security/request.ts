@@ -1,26 +1,9 @@
-/**
- * Request-level security helpers shared by every state-changing API route.
- *
- * - Same-origin enforcement (CSRF defence for cookie-authenticated POSTs)
- * - Client IP extraction that prefers the proxy headers a real deployment sets
- * - A database-backed rate limiter that survives restarts
- */
-
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
-/**
- * Should we believe the `X-Forwarded-For` family of headers?
- *
- * Only a proxy you control sets these, and any client can invent them. Behind
- * Cloudflare, an nginx/HAProxy edge, or a platform router they are the real
- * client address and per-IP limits are meaningful, so they are trusted by
- * default. If this application is exposed directly to the internet, set
- * TRUST_PROXY_HEADERS=false: the headers are then ignored and the limiter falls
- * back to one shared bucket (a global cap) rather than a spoofable one.
- */
+/** Trust proxy IP headers only when the ingress strips caller-provided values. */
 function trustProxyHeaders() {
-  return (process.env.TRUST_PROXY_HEADERS ?? 'true').toLowerCase() !== 'false'
+  return process.env.TRUST_PROXY_HEADERS === 'true'
 }
 
 export function clientIp(request: Request) {
@@ -41,37 +24,15 @@ export function clientIp(request: Request) {
   )
 }
 
-/** Host of a URL string, or null when it is not parseable. */
-function hostOf(value: string | null) {
-  if (!value) return null
-  try {
-    return new URL(value).host
-  } catch {
-    return null
-  }
-}
-
-/**
- * Rejects cross-site POSTs. Browsers always send Origin on cross-origin form
- * posts and fetch calls, so a mismatch (or a same-origin mismatch against the
- * Host header) means the request did not come from our own pages.
- *
- * Requests with no Origin/Referer at all (server-to-server calls, curl, payment
- * gateway callbacks) are allowed through — those routes authenticate by
- * signature instead — but browser-shaped requests must match.
- */
+/** Cookie-authenticated mutations require the exact canonical origin, including scheme and port. */
 export function isSameOrigin(request: Request) {
-  const origin = request.headers.get('origin')
-  const referer = request.headers.get('referer')
-  const host = request.headers.get('host')
-
-  if (!host) return true
-  const originHost = hostOf(origin)
-  const refererHost = hostOf(referer)
-
-  if (originHost && originHost !== host) return false
-  if (!originHost && refererHost && refererHost !== host) return false
-  return true
+  if (request.headers.get('sec-fetch-site') === 'cross-site') return false
+  const claimed = request.headers.get('origin') ?? request.headers.get('referer')
+  if (!claimed || claimed === 'null') return false
+  try {
+    const expected = new URL(process.env.NEXT_PUBLIC_APP_URL || request.url).origin
+    return new URL(claimed).origin === expected
+  } catch { return false }
 }
 
 /** 403 response for a cross-site request. */
@@ -133,8 +94,8 @@ export async function checkRateLimit(rule: RateLimitRule): Promise<RateLimitResu
 
     return { allowed: true, remaining: Math.max(0, rule.limit - counter.count), retryAfterSeconds }
   } catch {
-    // Never lock people out because the limiter itself failed.
-    return { allowed: true, remaining: rule.limit, retryAfterSeconds }
+    // Unavailable anti-abuse storage must not disable throttling.
+    return { allowed: false, remaining: 0, retryAfterSeconds }
   }
 }
 

@@ -43,8 +43,8 @@ call npm run db:push -- --skip-generate
 if errorlevel 1 goto failed
 
 echo.
-echo === Seeding demo accounts and content (safe to repeat) ===
-call npm run db:seed
+echo === Checking optional demo seed (disabled by default) ===
+call node scripts/seed-local-demo.cjs
 if errorlevel 1 goto failed
 
 if "%MODE%"=="dev" (
@@ -61,7 +61,7 @@ if errorlevel 1 goto failed
 
 echo.
 echo === Starting the site - http://localhost:3000 ===
-echo Staff sign-in: admin@pypc.org.pk / Pypc@2026
+echo Sign in with your existing account; no default admin password is provided.
 echo Press Ctrl+C to stop.
 call npm start
 goto end

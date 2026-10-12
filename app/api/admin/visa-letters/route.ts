@@ -1,24 +1,24 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { getCurrentUser, isStaff } from '@/lib/auth'
-import { notify, recordAudit } from '@/lib/audit'
+import { authorize, apiError, assertActor, auditMutation, readJson, transaction } from '@/lib/admin-api'
+import { notify } from '@/lib/audit'
 import { VISA_LETTER_STATUSES } from '@/lib/validations'
 
 const bodySchema = z.object({
   requestId: z.string().min(1),
   status: z.enum(VISA_LETTER_STATUSES),
   adminNotes: z.string().max(2000).optional()
-})
+}).strict()
 
 /** PATCH /api/admin/visa-letters — secretariat decision on an invitation-letter request. */
 export async function PATCH(request: Request) {
-  const staff = await getCurrentUser()
-  if (!staff || !isStaff(staff.role)) {
-    return NextResponse.json({ error: 'Staff access required.' }, { status: 403 })
-  }
+  let staff
+  try { staff = await authorize(request, 'visa.review') } catch (error) { return apiError(error) }
 
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null))
+  let body
+  try { body = await readJson(request) } catch (error) { return apiError(error) }
+  const parsed = bodySchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: 'requestId and a valid status are required.' }, { status: 422 })
   }
@@ -28,7 +28,10 @@ export async function PATCH(request: Request) {
   const existing = await prisma.visaLetterRequest.findUnique({ where: { id: requestId } })
   if (!existing) return NextResponse.json({ error: 'Request not found.' }, { status: 404 })
 
-  const updated = await prisma.visaLetterRequest.update({
+  let updated
+  try { updated = await transaction(async tx => {
+    await assertActor(tx, staff, 'visa.review')
+    const result = await tx.visaLetterRequest.update({
     where: { id: requestId },
     data: {
       status,
@@ -36,7 +39,10 @@ export async function PATCH(request: Request) {
       issuedAt: status === 'ISSUED' ? new Date() : existing.issuedAt,
       reviewedById: staff.id
     }
-  })
+    })
+    await auditMutation(tx, staff, request, 'VISA_LETTER_STATUS_UPDATED', 'VisaLetterRequest', requestId, { status, reference: existing.reference })
+    return result
+  }) } catch (error) { return apiError(error) }
 
   await notify({
     userId: existing.userId,
@@ -51,16 +57,6 @@ export async function PATCH(request: Request) {
     }`,
     type: status === 'ISSUED' ? 'SUCCESS' : status === 'REJECTED' ? 'WARNING' : 'INFO',
     href: '/dashboard/visa-letters'
-  })
-
-  await recordAudit({
-    actorId: staff.id,
-    actorEmail: staff.email,
-    action: 'VISA_LETTER_STATUS_UPDATED',
-    entityType: 'VisaLetterRequest',
-    entityId: requestId,
-    metadata: { status, reference: existing.reference },
-    request
   })
 
   return NextResponse.json({ ok: true, request: updated })

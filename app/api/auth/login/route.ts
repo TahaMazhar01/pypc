@@ -1,6 +1,7 @@
+import { hasPermission } from '@/lib/permissions'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { createSessionToken, isAdmin, sessionCookieOptions, verifyPassword, passwordWithinBcryptLimit } from '@/lib/auth'
+import { createSessionToken, sessionCookieOptions, verifyPassword, passwordWithinBcryptLimit } from '@/lib/auth'
 import { loginSchema } from '@/lib/validations'
 import { recordAudit } from '@/lib/audit'
 import type { UserRole } from '@/lib/constants'
@@ -99,7 +100,7 @@ export async function POST(request: Request) {
   }
 
   // Verify the password with bcrypt in constant time, whether or not the user exists.
-  const passwordMatches = user ? verifyPassword(password, user.passwordHash) : false
+  const passwordMatches = verifyPassword(password, user?.passwordHash ?? '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy')
 
   if (!user || !passwordMatches) {
     if (user) {
@@ -249,6 +250,8 @@ export async function POST(request: Request) {
     })
   }
 
+  if (user.status !== 'ACTIVE') return NextResponse.json({ error: 'This account is not active.' }, { status: 403 })
+
   const token = await createSessionToken({
     userId: user.id,
     email: user.email,
@@ -276,7 +279,7 @@ export async function POST(request: Request) {
   const response = NextResponse.json({
     ok: true,
     role: user.role,
-    redirectTo: isAdmin(user.role) ? '/admin' : '/dashboard'
+    redirectTo: hasPermission(user, 'dashboard.read') ? '/admin' : '/dashboard'
   })
 
   response.cookies.set({ ...sessionCookieOptions, value: token })

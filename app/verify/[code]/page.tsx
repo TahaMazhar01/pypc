@@ -11,7 +11,8 @@ import { formatDate, formatDateTime } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
-export async function generateMetadata({ params }: { params: { code: string } }): Promise<Metadata> {
+export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ code: string }> }): Promise<Metadata> {
+  const params = await paramsPromise
   return {
     title: `Verify ${decodeURIComponent(params.code).toUpperCase()}`,
     description: 'PYPC certificate verification record.',
@@ -19,7 +20,8 @@ export async function generateMetadata({ params }: { params: { code: string } })
   }
 }
 
-export default async function VerifyResultPage({ params }: { params: { code: string } }) {
+export default async function VerifyResultPage({ params: paramsPromise }: { params: Promise<{ code: string }> }) {
+  const params = await paramsPromise
   const code = decodeURIComponent(params.code)
   const result = await verifyCertificate(code)
 

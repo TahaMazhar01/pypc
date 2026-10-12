@@ -29,6 +29,7 @@ const ROOT = path.resolve(__dirname, '..')
 const SKIP_DIRS = new Set([
   'node_modules',
   '.next',
+  '.next-admin-preview',
   '.git',
   'backups',
   'reports',

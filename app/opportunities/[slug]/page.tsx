@@ -14,13 +14,15 @@ import { formatDate, parseJsonArray, relativeDeadline } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await paramsPromise
   const opportunity = await prisma.opportunity.findUnique({ where: { slug: params.slug } }).catch(() => null)
-  if (!opportunity) return { title: 'Opportunity not found' }
+  if (!opportunity || !opportunity.isActive) return { title: 'Opportunity not found' }
   return { title: opportunity.title, description: opportunity.summary }
 }
 
-export default async function OpportunityDetailPage({ params }: { params: { slug: string } }) {
+export default async function OpportunityDetailPage({ params: paramsPromise }: { params: Promise<{ slug: string }> }) {
+  const params = await paramsPromise
   const [opportunity, user] = await Promise.all([
     prisma.opportunity.findUnique({ where: { slug: params.slug } }),
     getCurrentUser()

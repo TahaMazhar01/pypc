@@ -97,20 +97,24 @@ export const dashboardNav = [
 
 export const adminNav = [
   { label: 'Overview', href: '/admin', icon: 'LayoutDashboard' },
+  { label: 'Roles & permissions', href: '/admin/roles', icon: 'ShieldCheck' },
+  { label: 'Homepage content', href: '/admin/content', icon: 'FileText' },
+  { label: 'Media library', href: '/admin/media', icon: 'Image' },
+  { label: 'Partnerships', href: '/admin/partnerships', icon: 'Users' },
   { label: 'Members', href: '/admin/users', icon: 'Users' },
   { label: 'Applications', href: '/admin/applications', icon: 'FileText' },
   { label: 'Payments', href: '/admin/payments', icon: 'CreditCard' },
   { label: 'Certificates', href: '/admin/certificates', icon: 'Award' },
   { label: 'Programmes', href: '/admin/programmes', icon: 'Landmark' },
   { label: 'Events', href: '/admin/events', icon: 'CalendarDays' },
-  { label: 'Opportunities', href: '/admin/opportunities', icon: 'GraduationCap' },
+  { label: 'Postings & positions', href: '/admin/opportunities', icon: 'GraduationCap' },
   { label: 'Messages', href: '/admin/messages', icon: 'Mail' },
   { label: 'Email & Verification', href: '/admin/emails', icon: 'MailCheck' },
   { label: 'Visa Letters', href: '/admin/visa-letters', icon: 'Globe2' },
   { label: 'Audit Log', href: '/admin/audit', icon: 'ScrollText' }
 ]
 
-export const USER_ROLES = ['MEMBER', 'EXECUTIVE', 'MODERATOR', 'ADMIN', 'SUPER_ADMIN'] as const
+export const USER_ROLES = ['MEMBER', 'EXECUTIVE', 'MODERATOR', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR', 'AMBASSADOR', 'GRAPHIC_DESIGNER', 'DEVELOPER', 'EMPLOYEE'] as const
 export type UserRole = (typeof USER_ROLES)[number]
 
 export const USER_STATUSES = ['PENDING', 'ACTIVE', 'SUSPENDED', 'REJECTED'] as const
@@ -121,7 +125,8 @@ export const APPLICATION_STATUSES = [
   'UNDER_REVIEW',
   'SHORTLISTED',
   'APPROVED',
-  'REJECTED'
+  'REJECTED',
+  'ARCHIVED'
 ] as const
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number]
 

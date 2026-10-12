@@ -3,6 +3,7 @@
 
 import { displayContent } from '@/lib/display-content'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { Activity, Loader2, MessageSquare, Send, Bot, X } from 'lucide-react'
 import { detectLanguage, LANGUAGE_LABELS, type AssistantLanguage } from '@/lib/ai/language'
 import { copyFor } from '@/lib/ai/suggestions'
@@ -55,6 +56,12 @@ function safeStorage() {
 }
 
 export function AiAssistant() {
+  const pathname = usePathname()
+  if (['/login', '/register', '/verify-email'].includes(pathname) || pathname === '/admin' || pathname.startsWith('/admin/')) return null
+  return <AssistantWidget />
+}
+
+function AssistantWidget() {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)

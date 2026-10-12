@@ -3,6 +3,7 @@ node_modules/
 
 # Next.js
 .next/
+.next-admin-preview/
 out/
 next-env.d.ts
 *.tsbuildinfo

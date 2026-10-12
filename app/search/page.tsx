@@ -33,10 +33,11 @@ const KIND_TONE: Record<SearchResult['kind'], string> = {
 }
 
 export default async function SearchPage({
-  searchParams
+  searchParams: searchParamsPromise
 }: {
-  searchParams: { q?: string }
+  searchParams: Promise<{ q?: string }>
 }) {
+  const searchParams = await searchParamsPromise
   const query = (searchParams.q ?? '').trim()
   const results = query.length >= 2 ? await searchSite(query) : []
   const grouped = results.reduce<Record<string, SearchResult[]>>((acc, result) => {

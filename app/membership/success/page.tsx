@@ -19,10 +19,11 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function MembershipSuccessPage({
-  searchParams
+  searchParams: searchParamsPromise
 }: {
-  searchParams: { reference?: string }
+  searchParams: Promise<{ reference?: string }>
 }) {
+  const searchParams = await searchParamsPromise
   const reference = searchParams.reference
   const user = await getCurrentUser()
 

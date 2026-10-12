@@ -36,11 +36,12 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-export default function NewsPage({
-  searchParams
+export default async function NewsPage({
+  searchParams: searchParamsPromise
 }: {
-  searchParams: { subscribed?: string; unsubscribed?: string }
+  searchParams: Promise<{ subscribed?: string; unsubscribed?: string }>
 }) {
+  const searchParams = await searchParamsPromise
   const items = sortedNews()
   const [lead, ...rest] = items
 

@@ -2,6 +2,11 @@ const {spawnSync}=require('node:child_process');
 const path=require('node:path');
 require('@next/env').loadEnvConfig(process.cwd());
 function run(args){const r=spawnSync(process.execPath,args,{stdio:'inherit',env:process.env});if(r.status!==0)process.exit(r.status||1);}
+if(process.env.VERCEL){
+  if(process.env.UI_PREVIEW_ONLY==='true'){console.error('Synthetic preview builds are disabled on Vercel.');process.exit(1);}
+  if(process.env.PYPC_APPROVED_ADMIN_MIGRATION){run(['scripts/backup-and-migrate-admin.cjs']);}
+  run(['scripts/check-production-schema.cjs']);
+}
 if(process.env.UI_PREVIEW_ONLY==='true'){
   // A fresh sample database created in the build, never the user's SQLite file.
   process.env.DATABASE_URL='file:'+path.join(process.cwd(),'prisma','preview.db');

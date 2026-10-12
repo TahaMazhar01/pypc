@@ -14,10 +14,11 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function SimulatePaymentPage({
-  searchParams
+  searchParams: searchParamsPromise
 }: {
-  searchParams: { reference?: string }
+  searchParams: Promise<{ reference?: string }>
 }) {
+  const searchParams = await searchParamsPromise
   if (!paymentsSimulationEnabled()) notFound()
 
   const user = await getCurrentUser()

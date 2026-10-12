@@ -24,11 +24,12 @@ export const dynamic = 'force-dynamic'
  *  - from the link inside the verification email (`?token=…`), which verifies
  *    automatically on load.
  */
-export default function VerifyEmailPage({
-  searchParams
+export default async function VerifyEmailPage({
+  searchParams: searchParamsPromise
 }: {
-  searchParams: { email?: string; token?: string }
+  searchParams: Promise<{ email?: string; token?: string }>
 }) {
+  const searchParams = await searchParamsPromise
   const email = (searchParams.email ?? '').trim()
   const token = searchParams.token
   const status = mailStatus()
@@ -39,7 +40,7 @@ export default function VerifyEmailPage({
         <PageHero
           eyebrow="Account security"
           title="Verify your email address"
-          description="Open the link from your verification email, or enter the six-digit code we sent you."
+          description={status.localPreview ? status.message : 'Open the link from your verification email, or enter the six-digit code we sent you.'}
           breadcrumb={[{ label: 'Verify email' }]}
         />
 
@@ -51,7 +52,7 @@ export default function VerifyEmailPage({
               <Link href="/register" className="font-bold text-primary underline decoration-gold-300">
                 sign up page
               </Link>{displayContent(' ')}
-              and we will send a fresh code. If you already verified your address, simply{displayContent(' ')}
+              {status.localPreview ? 'to create a pending preview account. Outgoing email is disabled here. If you already have a verified preview account, ' : 'and we will send a fresh code. If you already verified your address, simply '}
               <Link href="/login" className="font-bold text-primary underline decoration-gold-300">
                 sign in
               </Link>
@@ -82,7 +83,7 @@ export default function VerifyEmailPage({
       />
 
       <section className="container max-w-3xl py-14">
-        <VerificationCodeForm email={email} token={token} />
+        <VerificationCodeForm email={email} token={token} localPreview={status.localPreview} />
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           <div className="rounded-2xl border border-slate-200 bg-white p-5">

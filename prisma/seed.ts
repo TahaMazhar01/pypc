@@ -56,7 +56,13 @@ import { MEMBERSHIP_TIERS } from '../lib/data/membership'
 
 const prisma = new PrismaClient()
 
-const DEMO_PASSWORD = 'Pypc@2026'
+// Never create predictable privileged accounts. Demo seeding is explicitly
+// opt-in and restricted to local SQLite development databases.
+if (process.env.ALLOW_DEMO_SEED !== 'true' || process.env.NODE_ENV === 'production' || !process.env.DATABASE_URL?.startsWith('file:')) {
+  throw new Error('Demo seeding is disabled. Use an isolated local SQLite database and explicitly opt in with ALLOW_DEMO_SEED=true.')
+}
+const DEMO_PASSWORD = process.env.DEMO_SEED_PASSWORD ?? ''
+if (DEMO_PASSWORD.length < 16 || Buffer.byteLength(DEMO_PASSWORD, 'utf8') > 72) throw new Error('Supply a unique DEMO_SEED_PASSWORD of at least 16 characters and no more than 72 bytes.')
 const CODE_VALID = 'PYPC-A2B4-C6D8-E9F1'
 const CODE_REVOKED = 'PYPC-Z9Y8-X7W6-V5U4'
 
@@ -688,9 +694,7 @@ async function main() {
   })
 
   console.log('\n✔ Seed complete.\n')
-  console.log('   Admin     : admin@pypc.org.pk      / ' + DEMO_PASSWORD)
-  console.log('   Executive : executive@pypc.org.pk  / ' + DEMO_PASSWORD)
-  console.log('   Member    : member@example.com     / ' + DEMO_PASSWORD)
+  console.log('   Demo accounts use the caller-supplied password; credentials are not printed.')
   console.log('   Valid certificate code to verify  : ' + CODE_VALID)
   console.log('   Revoked certificate code to verify: ' + CODE_REVOKED + '\n')
 }

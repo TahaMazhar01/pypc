@@ -1,5 +1,6 @@
+import { hasPermission } from '@/lib/permissions'
 import Link from 'next/link'
-import { getCurrentUser, isAdmin } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/auth'
 import { Logo } from './logo'
 import { HeaderNav } from './header-nav'
 
@@ -15,7 +16,7 @@ export async function SiteHeader() {
         name: `${user.firstName} ${user.lastName}`.trim(),
         email: user.email,
         role: user.role,
-        admin: isAdmin(user.role),
+        admin: hasPermission(user, 'dashboard.read'),
         executive: ['EXECUTIVE', 'MODERATOR'].includes(user.role)
       }
     : null

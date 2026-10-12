@@ -1,3 +1,4 @@
+import { isSameOrigin, crossOriginResponse } from '@/lib/security/request'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
@@ -21,6 +22,7 @@ import { fulfilOrder } from '@/lib/orders'
  *               the full journey can be tested without merchant credentials
  */
 export async function POST(request: Request) {
+  if (!isSameOrigin(request)) return crossOriginResponse()
   const user = await getCurrentUser()
   if (!user) {
     return NextResponse.json({ error: 'Please sign in to continue to checkout.' }, { status: 401 })

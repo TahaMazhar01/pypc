@@ -2,6 +2,8 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  ...(process.env.PYPC_LOCAL_OUTPUT === 'admin-preview' ? { distDir: '.next-admin-preview' } : {}),
+  ...(process.env.UI_PREVIEW_ONLY === 'true' ? { outputFileTracingIncludes: { '/*': ['./prisma/preview.db'] } } : {}),
 
   /**
    * Response-time settings.
@@ -30,7 +32,6 @@ const nextConfig = {
   },
 
   experimental: {
-    ...(process.env.UI_PREVIEW_ONLY === 'true' ? { outputFileTracingIncludes: { '/*': ['./prisma/preview.db'] } } : {}),
     serverActions: {
       bodySizeLimit: '5mb'
     },

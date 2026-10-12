@@ -1,5 +1,6 @@
+import { hasPermission } from '@/lib/permissions'
 import { NextResponse } from 'next/server'
-import { getCurrentUser, isStaff } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/auth'
 import { contentTypeFor, documentBelongsTo, readStoredDocument } from '@/lib/uploads'
 
 /**
@@ -7,14 +8,15 @@ import { contentTypeFor, documentBelongsTo, readStoredDocument } from '@/lib/upl
  * Serves a privately stored document. Access is limited to the owner and to
  * staff, so a leaked URL alone cannot expose someone's CV.
  */
-export async function GET(_request: Request, { params }: { params: { file: string } }) {
+export async function GET(_request: Request, { params: paramsPromise }: { params: Promise<{ file: string }> }) {
+  const params = await paramsPromise
   const user = await getCurrentUser()
   if (!user) {
     return NextResponse.json({ error: 'Please sign in to view this document.' }, { status: 401 })
   }
 
   const storedName = decodeURIComponent(params.file)
-  const allowed = documentBelongsTo(storedName, user.id) || isStaff(user.role)
+  const allowed = documentBelongsTo(storedName, user.id) || hasPermission(user, 'documents.read')
 
   if (!allowed) {
     return NextResponse.json({ error: 'You do not have access to this document.' }, { status: 403 })

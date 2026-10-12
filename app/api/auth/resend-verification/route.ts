@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     delivered,
     expiresMinutes,
     message:
-      'If that address has an unverified PYPC account, a new six-digit code is on its way. It expires in 30 minutes.',
+      status.localPreview ? 'Outgoing email is disabled in this local preview. If that address has a pending account, a fresh verification message was captured locally. No email was sent; the account remains unverified.' : 'If that address has an unverified PYPC account, a new six-digit code is on its way. It expires in 30 minutes.',
     transportNote:
       status.transport === 'smtp'
         ? `Sent from ${status.from}.`

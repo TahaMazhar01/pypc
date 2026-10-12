@@ -19,10 +19,11 @@ export const metadata: Metadata = {
 export const dynamic = 'force-dynamic'
 
 export default async function ProgrammesPage({
-  searchParams
+  searchParams: searchParamsPromise
 }: {
-  searchParams: { category?: string }
+  searchParams: Promise<{ category?: string }>
 }) {
+  const searchParams = await searchParamsPromise
   const category = searchParams.category
 
   const programmes = await prisma.programme.findMany({

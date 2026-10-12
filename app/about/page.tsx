@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { CheckCircle2 } from 'lucide-react'
 import { PageHero } from '@/components/layout/page-hero'
+import { AboutHighlights } from '@/components/features/about-highlights'
 import { Reveal } from '@/components/motion/reveal'
 import { Card } from '@/components/ui/card'
 import { Icon } from '@/components/ui/icon'
@@ -107,6 +108,8 @@ export default function AboutPage() {
           </Card>
         </Reveal>
       </section>
+
+      <AboutHighlights />
 
       <section className="border-y border-slate-100 bg-slate-50 py-16">
         <div className="container">

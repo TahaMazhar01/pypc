@@ -152,7 +152,7 @@ export const registerSchema = z
 
 export const loginSchema = z.object({
   email: z.string().trim().transform(normaliseEmail).refine(value => /.+@.+\..+/.test(value), 'Enter a valid email address'),
-  password: z.string().min(1, 'Password is required'),
+  password: z.string().min(1, 'Password is required').max(72),
   // See registerSchema: accepted here, discarded silently in the route.
   companyWebsite: z.string().max(200).optional().or(z.literal(''))
 })
@@ -238,7 +238,7 @@ export const VISA_LETTER_TYPES = [
   'ACADEMIC_VISIT'
 ] as const
 
-export const VISA_LETTER_STATUSES = ['PENDING', 'NEED_INFO', 'ISSUED', 'REJECTED'] as const
+export const VISA_LETTER_STATUSES = ['PENDING', 'NEED_INFO', 'ISSUED', 'REJECTED', 'ARCHIVED'] as const
 
 export const visaLetterSchema = refinePhone(
   z.object({
@@ -322,7 +322,8 @@ export const PARTNERSHIP_STATUSES = [
   'UNDER_REVIEW',
   'APPROVED',
   'DECLINED',
-  'WITHDRAWN'
+  'WITHDRAWN',
+  'ARCHIVED'
 ] as const
 
 export const partnershipRequestSchema = refinePhone(

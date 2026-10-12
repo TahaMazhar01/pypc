@@ -8,7 +8,8 @@ import { buildIcs, type CalendarEvent } from '@/lib/calendar'
  * people actually attend, and nothing private is exposed — the feed contains
  * only what the public event page already shows.
  */
-export async function GET(_request: Request, { params }: { params: { slug: string } }) {
+export async function GET(_request: Request, { params: paramsPromise }: { params: Promise<{ slug: string }> }) {
+  const params = await paramsPromise
   const event = await prisma.event.findFirst({
     where: { slug: params.slug, isPublished: true }
   })

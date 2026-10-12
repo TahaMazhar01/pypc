@@ -1,3 +1,7 @@
+> Local setup does not create demo users by default. For an isolated disposable SQLite database only, set ALLOW_DEMO_SEED=true and a unique DEMO_SEED_PASSWORD (16–72 bytes). Never enable demo seeding against your working database. Existing local databases can be backed up, restore-verified and migrated with `node scripts/migrate-local-admin.cjs` while the server is stopped.
+
+> Authentication and content management were updated. Read [the administration setup and security guide](docs/ADMIN-SECURITY.md) before using the setup/seed instructions below. No default administrator password is provided. Existing databases require the additive migration; production deployment remains an operator action.
+
 # Pakistan Youth Parliamentary Council — run this package in two minutes
 
 This folder is the **complete** PYPC platform: public site, member dashboard, admin panel,
@@ -48,8 +52,8 @@ chmod +x setup.sh && ./setup.sh
 The script does the four steps in order and tells you what it is doing:
 
 1. `npm install` — install the exact dependency versions
-2. `npx prisma generate` + `npx prisma db push` — prepare the database client (the data is already in `prisma/dev.db`)
-3. `npm run db:seed` — refresh the demo accounts and demo content (idempotent, safe to repeat)
+2. `npm run db:generate` + `npm run db:push` — prepare the database client (the data is already in `prisma/dev.db`)
+3. Optional demo seed — skipped by default to preserve existing accounts and content.
 4. `npm run build` then `npm start`
 
 When it finishes, open **<http://localhost:3000>**.
@@ -58,8 +62,8 @@ When it finishes, open **<http://localhost:3000>**.
 
 ```bash
 npm install
-npx prisma generate && npx prisma db push
-npm run db:seed        # optional — the database already contains this data
+npm run db:generate && npm run db:push
+node scripts/seed-local-demo.cjs # skipped unless explicitly enabled
 npm run build && npm start
 ```
 
@@ -69,9 +73,9 @@ For development with hot reload use `npm run dev` instead of `npm run build && n
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Super Admin | `admin@pypc.org.pk` | `Pypc@2026` |
-| Executive | `executive@pypc.org.pk` | `Pypc@2026` |
-| Member | `member@example.com` | `Pypc@2026` |
+| Super Admin | `admin@pypc.org.pk` | `<operator-supplied demo password>` |
+| Executive | `executive@pypc.org.pk` | `<operator-supplied demo password>` |
+| Member | `member@example.com` | `<operator-supplied demo password>` |
 
 Certificate verification codes to try at `/verify`:
 

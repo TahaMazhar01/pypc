@@ -1,3 +1,4 @@
+import { publishedHomepage } from '@/lib/content'
 
 import { displayContent } from '@/lib/display-content'
 import Link from 'next/link'
@@ -42,6 +43,10 @@ const membershipBenefits = [
 ]
 
 export default async function HomePage() {
+  const homepage = await publishedHomepage()
+  const heroSlides = homepage.filter(i => i.section === 'hero').map(i => ({ image: i.id, title: i.title, category: i.summary, photo: { src: i.image, alt: i.imageAlt } }))
+  const carouselSlides = homepage.filter(i => i.section === 'carousel').map(i => ({ src: i.image, alt: i.imageAlt, title: i.title, caption: i.summary, href: i.href, cta: i.cta }))
+  const homeEvents = homepage.filter(i => i.section === 'card').map(i => ({ slug: i.id, title: i.title, fullName: i.fullName, summary: i.summary, image: i.image, imageAlt: i.imageAlt, href: i.href, location: i.location, date: i.date, scale: i.scale, category: i.category, status: i.status, featured: i.featured }))
   const [upcomingEvents, openOpportunities, counts] = await Promise.all([
     prisma.event
       .findMany({
@@ -75,11 +80,11 @@ export default async function HomePage() {
   return (
     <>
       {/* 1 — 3D hero with the official emblem */}
-      <HomeHero3D stats={stats} />
+      <HomeHero3D stats={stats} slides={heroSlides} />
       <CouncilIntroduction />
 
       {/* 2 — aieys-style rotating highlight carousel */}
-      <FeaturedCarouselBand />
+      <FeaturedCarouselBand slides={carouselSlides} />
 
       {/* 3 — animated institutional counters */}
       <StatsStrip3D
@@ -99,7 +104,7 @@ export default async function HomePage() {
       <PartnerWall />
 
       {/* 6 — events grid with cover images and "Explore event" */}
-      <EventsBand />
+      <EventsBand events={homeEvents} />
 
       {/* 7 — governance + audit-grade standards */}
       <Governance3D />

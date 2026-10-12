@@ -1,3 +1,4 @@
+import { isSameOrigin, crossOriginResponse } from '@/lib/security/request'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
@@ -11,6 +12,7 @@ import { recordAudit } from '@/lib/audit'
  * so it can never create paid memberships on a live site.
  */
 export async function POST(request: Request) {
+  if (!isSameOrigin(request)) return crossOriginResponse()
   if (!paymentsSimulationEnabled()) {
     return NextResponse.json({ error: 'Simulated payments are disabled.' }, { status: 403 })
   }

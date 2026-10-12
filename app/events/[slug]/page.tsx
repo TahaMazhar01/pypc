@@ -15,16 +15,18 @@ import { formatDateTime, formatShortDate, relativeDeadline } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const event = await prisma.event.findUnique({ where: { slug: params.slug } }).catch(() => null)
-  if (!event) return { title: 'Event not found' }
+export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await paramsPromise
+  const event = await prisma.event.findUnique({ where: { slug: params.slug, isPublished: true } }).catch(() => null)
+  if (!event || !event.isPublished) return { title: 'Event not found' }
   return { title: event.title, description: event.description }
 }
 
-export default async function EventDetailPage({ params }: { params: { slug: string } }) {
+export default async function EventDetailPage({ params: paramsPromise }: { params: Promise<{ slug: string }> }) {
+  const params = await paramsPromise
   const [event, user] = await Promise.all([
     prisma.event.findUnique({
-      where: { slug: params.slug },
+      where: { slug: params.slug, isPublished: true },
       include: {
         _count: { select: { registrations: true } },
         registrations: { where: { status: 'REGISTERED' }, select: { id: true, userId: true } }

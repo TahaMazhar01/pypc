@@ -4,7 +4,7 @@
 import { displayContent } from '@/lib/display-content'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Icon } from '@/components/ui/icon'
@@ -26,9 +26,24 @@ export function DashboardShell({
 }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const [ready, setReady] = useState(false)
+  useEffect(() => setReady(true), [])
 
   const isActive = (href: string) =>
     pathname === href || (href !== '/dashboard' && href !== '/admin' && pathname.startsWith(`${href}/`))
+
+  if (accent === 'slate') return <div className="admin-workspace" data-ready={ready}>
+    <div className="admin-topbar"><Link href="/admin" className="admin-brand"><span>PYPC</span><span>Administration<small>Council workspace</small></span></Link><div className="admin-topbar-actions"><Link href="/">View website</Link><Link href="/dashboard/profile">My account</Link></div></div>
+    <div className="admin-frame">
+      <aside className="admin-sidebar" data-open={open}>
+        <p className="admin-sidebar-caption">Workspace</p>
+        <button className="admin-mobile-menu" aria-expanded={open} aria-controls="admin-navigation" onClick={() => setOpen(value => !value)}>{nav.find(item => isActive(item.href))?.label ?? 'Menu'}{open ? <X size={19} /> : <Menu size={19} />}</button>
+        <nav id="admin-navigation" aria-label="Dashboard navigation">{nav.map(item => <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? 'page' : undefined} onClick={() => setOpen(false)}><Icon name={item.icon} size={18} /><span>{item.label}</span></Link>)}</nav>
+        <p className="admin-sidebar-note">Changes are recorded in the audit trail. Access follows your assigned permissions.</p>
+      </aside>
+      <div className="admin-main"><header className="admin-page-heading"><p>Pakistan Youth Parliamentary Council</p><h1>{nav.find(item => isActive(item.href))?.label ?? title}</h1><p>{subtitle}</p></header>{children}</div>
+    </div>
+  </div>
 
   return (
     <div className="bg-slate-50">

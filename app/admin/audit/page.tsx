@@ -1,10 +1,9 @@
 
 import { displayContent } from '@/lib/display-content'
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
 import { Badge, Card } from '@/components/ui/card'
 import { prisma } from '@/lib/prisma'
-import { isAdmin, requireUser } from '@/lib/auth'
+import { requirePermissionPage } from '@/lib/auth'
 import { verifyAuditChain } from '@/lib/audit'
 import { formatDateTime, humanise } from '@/lib/utils'
 
@@ -12,12 +11,12 @@ export const metadata: Metadata = { title: 'Audit Log' }
 export const dynamic = 'force-dynamic'
 
 export default async function AdminAuditPage({
-  searchParams
+  searchParams: searchParamsPromise
 }: {
-  searchParams: { action?: string }
+  searchParams: Promise<{ action?: string }>
 }) {
-  const user = await requireUser()
-  if (!isAdmin(user.role)) redirect('/dashboard')
+  const searchParams = await searchParamsPromise
+  await requirePermissionPage('audit.read')
 
   const action = searchParams.action?.trim()
 
@@ -37,9 +36,10 @@ export default async function AdminAuditPage({
         <h2 className="text-lg font-extrabold text-slate-900">Audit log</h2>
         <p className="mt-1 text-sm text-slate-600">
           Every administrative and security relevant action is recorded with actor, entity, timestamp and
-          IP address. Records are append only, and each entry is cryptographically chained to the one
-          before it: editing or deleting an entry breaks every hash that follows, which is what makes this
-          log tamper evident rather than merely stored.
+          IP address. New role, user, media and publishing changes commit in the same database transaction
+          as their audit entry. These records are append only through the application. The legacy hash
+          check below covers older chained entries only; use restricted database access and external log
+          retention for protection against database administrators.
         </p>
 
         <div

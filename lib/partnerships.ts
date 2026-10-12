@@ -35,7 +35,8 @@ export const PARTNERSHIP_STATUS_LABELS: Record<PartnershipStatus, string> = {
   UNDER_REVIEW: 'Under review',
   APPROVED: 'Approved',
   DECLINED: 'Not taken forward',
-  WITHDRAWN: 'Withdrawn'
+  WITHDRAWN: 'Withdrawn',
+  ARCHIVED: 'Archived'
 }
 
 /**
@@ -49,7 +50,8 @@ export const PARTNERSHIP_STATUS_MEANINGS: Record<PartnershipStatus, string> = {
   APPROVED: 'Agreed. The secretariat will send the MoU or chapter pack and countersign it with you.',
   DECLINED:
     'Not taken forward at this time — the reason is recorded, and you are welcome to submit again in a later cycle.',
-  WITHDRAWN: 'Withdrawn at your request. No further action is taken on our side.'
+  WITHDRAWN: 'Withdrawn at your request. No further action is taken on our side.',
+  ARCHIVED: 'Retained in the records. The secretariat can reopen the request when needed.'
 }
 
 /** What a partnership area means in practice — shown as the form's checkboxes. */

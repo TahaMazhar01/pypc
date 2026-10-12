@@ -25,7 +25,8 @@ export function generateStaticParams() {
   return news.map(item => ({ slug: item.slug }))
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
+export async function generateMetadata({ params: paramsPromise }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const params = await paramsPromise
   const item = newsBySlug(params.slug)
   if (!item) return { title: 'Announcement not found' }
 
@@ -43,7 +44,8 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   }
 }
 
-export default function NewsArticlePage({ params }: { params: { slug: string } }) {
+export default async function NewsArticlePage({ params: paramsPromise }: { params: Promise<{ slug: string }> }) {
+  const params = await paramsPromise
   const item = newsBySlug(params.slug)
   if (!item) notFound()
 

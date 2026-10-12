@@ -19,6 +19,7 @@ function useAction() {
     setBusy(true)
     setError(null)
 
+    try {
     const response = await fetch(url, {
       method,
       headers: { 'Content-Type': 'application/json' },
@@ -26,7 +27,6 @@ function useAction() {
     })
 
     const data = await response.json().catch(() => null)
-    setBusy(false)
 
     if (!response.ok) {
       setError(data?.error ?? 'Action failed.')
@@ -35,6 +35,8 @@ function useAction() {
 
     router.refresh()
     return true
+    } catch { setError('Could not connect. Your changes are still here; please try again.'); return false }
+    finally { setBusy(false) }
   }
 
   return { run, busy, error }
@@ -44,17 +46,24 @@ function useAction() {
 export function UserControls({
   userId,
   role,
-  status
+  status,
+  customRoleId,
+  customRoles = [],
+  allowSuperAdmin = false
 }: {
   userId: string
   role: string
   status: string
+  customRoleId?: string | null
+  customRoles?: { id: string; name: string }[]
+  allowSuperAdmin?: boolean
 }) {
   const { run, busy, error } = useAction()
-  const [nextRole, setNextRole] = useState(role)
+  const originalRole = role === 'CUSTOM' ? `custom:${customRoleId}` : role
+  const [nextRole, setNextRole] = useState(originalRole)
   const [nextStatus, setNextStatus] = useState(status)
 
-  const dirty = nextRole !== role || nextStatus !== status
+  const dirty = nextRole !== originalRole || nextStatus !== status
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -64,11 +73,12 @@ export function UserControls({
         aria-label="Member role"
         className="h-9 w-auto text-xs"
       >
-        {USER_ROLES.map(item => (
+        {USER_ROLES.filter(item => item !== 'SUPER_ADMIN' || allowSuperAdmin || role === item).map(item => (
           <option key={item} value={item}>
             {displayContent(humanise(item))}
           </option>
         ))}
+        {customRoles.map(item => <option key={item.id} value={`custom:${item.id}`}>{item.name} (custom)</option>)}
       </Select>
 
       <Select
@@ -87,10 +97,12 @@ export function UserControls({
       <Button
         size="sm"
         disabled={busy || !dirty}
-        onClick={() => run('/api/admin/users', { userId, role: nextRole, status: nextStatus })}
+        onClick={() => run('/api/admin/users', { userId, role: nextRole.startsWith('custom:') ? 'CUSTOM' : nextRole, customRoleId: nextRole.startsWith('custom:') ? nextRole.slice(7) : null, status: nextStatus })}
       >
         {displayContent(busy ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />)} Apply
       </Button>
+
+      <Button size="sm" variant="outline" disabled={busy} onClick={() => run('/api/admin/users', { userId, revokeSessions: true })}>Sign out everywhere</Button>
 
       {displayContent(error ? <span className="text-xs font-semibold text-rose-600">{displayContent(error)}</span> : null)}
     </div>
@@ -292,28 +304,32 @@ export function IssueCertificateForm({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Input
+          aria-label="Certificate title"
           placeholder="Certificate title"
           value={form.title}
           onChange={event => setForm({ ...form, title: event.target.value })}
         />
         <Input
+          aria-label="Recipient full name"
           placeholder="Recipient full name"
           value={form.recipientName}
           onChange={event => setForm({ ...form, recipientName: event.target.value })}
         />
         <Input
+          aria-label="Grade or distinction"
           placeholder="Grade / distinction (optional)"
           value={form.grade}
           onChange={event => setForm({ ...form, grade: event.target.value })}
         />
         <Input
+          aria-label="Member user ID"
           placeholder="Member user ID (optional, links to dashboard)"
           value={form.userId}
           onChange={event => setForm({ ...form, userId: event.target.value })}
         />
       </div>
 
-      <Select value={form.scope} onChange={event => setForm({ ...form, scope: event.target.value })}>
+      <Select aria-label="Programme or event" value={form.scope} onChange={event => setForm({ ...form, scope: event.target.value })}>
         <option value="">Link to programme or event (optional)</option>
         <optgroup label="Programmes">
           {programmes.map(programme => (
@@ -332,6 +348,7 @@ export function IssueCertificateForm({
       </Select>
 
       <Textarea
+        aria-label="Certificate description"
         rows={3}
         placeholder="Description printed on the certificate"
         value={form.description}

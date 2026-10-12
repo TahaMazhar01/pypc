@@ -4,6 +4,8 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { SignJWT, jwtVerify } from 'jose'
 import bcrypt from 'bcryptjs'
+import { randomUUID } from 'node:crypto'
+import { hasPermission, type Permission } from '@/lib/permissions'
 import { prisma } from '@/lib/prisma'
 import type { UserRole } from '@/lib/constants'
 
@@ -12,7 +14,7 @@ const SESSION_DAYS = 7
 
 function secretKey() {
   const secret = process.env.AUTH_SECRET
-  if (!secret || secret.length < 16) {
+  if (!secret || secret.length < 32) {
     throw new Error(
       'AUTH_SECRET is missing or too short. Add a long random value to .env (openssl rand -base64 32).'
     )
@@ -25,6 +27,7 @@ export type SessionPayload = {
   email: string
   role: UserRole
   version: number
+  sessionId?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -49,23 +52,28 @@ export function passwordWithinBcryptLimit(password: string) {
 // ---------------------------------------------------------------------------
 
 export async function createSessionToken(payload: SessionPayload) {
-  return new SignJWT({ ...payload })
+  const sessionId = randomUUID()
+  const token = await new SignJWT({ ...payload, sessionId })
+    .setJti(sessionId)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setIssuer('pypc.org.pk')
     .setExpirationTime(`${SESSION_DAYS}d`)
     .sign(secretKey())
+  await prisma.authSession.create({ data: { id: sessionId, userId: payload.userId, expiresAt: new Date(Date.now() + SESSION_DAYS * 86400000) } })
+  return token
 }
 
 export async function readSessionToken(token: string): Promise<SessionPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, secretKey(), { issuer: 'pypc.org.pk' })
-    if (!payload.userId || !payload.email) return null
+    const { payload } = await jwtVerify(token, secretKey(), { issuer: 'pypc.org.pk', algorithms: ['HS256'] })
+    if (typeof payload.userId !== 'string' || typeof payload.email !== 'string' || typeof payload.sessionId !== 'string' || payload.jti !== payload.sessionId || !Number.isSafeInteger(payload.version)) return null
     return {
       userId: String(payload.userId),
       email: String(payload.email),
       role: String(payload.role ?? 'MEMBER') as UserRole,
-      version: Number(payload.version ?? 0)
+      version: Number(payload.version),
+      sessionId: payload.sessionId
     }
   } catch {
     return null
@@ -86,7 +94,7 @@ export const sessionCookieOptions = {
 // ---------------------------------------------------------------------------
 
 export async function getSession(): Promise<SessionPayload | null> {
-  const token = cookies().get(COOKIE_NAME)?.value
+  const token = (await cookies()).get(COOKIE_NAME)?.value
   if (!token) return null
   return readSessionToken(token)
 }
@@ -111,6 +119,8 @@ async function loadUser(userId: string) {
       avatarUrl: true,
       resumeUrl: true,
       role: true,
+      customRoleId: true,
+      customRole: { select: { id: true, name: true, permissions: true } },
       status: true,
       cnic: true,
       dateOfBirth: true,
@@ -140,9 +150,12 @@ export async function getCurrentUser() {
   const session = await getSession()
   if (!session) return null
 
+  const stored = await prisma.authSession.findUnique({ where: { id: session.sessionId! } })
+  if (!stored || stored.userId !== session.userId || stored.expiresAt <= new Date()) return null
+
   const user = await loadUser(session.userId)
   if (!user) return null
-  if (user.status === 'SUSPENDED' || user.status === 'REJECTED') return null
+  if (user.status !== 'ACTIVE') return null
   if (!user.emailVerifiedAt) return null
   // Password change / forced logout invalidates older tokens.
   if (user.sessionVersion !== session.version) return null
@@ -156,8 +169,10 @@ export type AuthenticatedUser = NonNullable<CurrentUser>
 export async function getUnverifiedSessionUser() {
   const session = await getSession()
   if (!session) return null
+  const stored = await prisma.authSession.findUnique({ where: { id: session.sessionId! } })
+  if (!stored || stored.userId !== session.userId || stored.expiresAt <= new Date()) return null
   const user = await loadUser(session.userId)
-  if (!user || user.emailVerifiedAt) return null
+  if (!user || user.emailVerifiedAt || user.sessionVersion !== session.version || ['SUSPENDED', 'REJECTED'].includes(user.status)) return null
   return user
 }
 
@@ -167,63 +182,14 @@ export async function requireUser() {
   return user
 }
 
-export function isStaff(role: string) {
-  return ['ADMIN', 'SUPER_ADMIN', 'MODERATOR'].includes(role)
-}
-
 export function isAdmin(role: string) {
-  return ['ADMIN', 'SUPER_ADMIN'].includes(role)
+  return role === 'ADMIN' || role === 'SUPER_ADMIN'
 }
 
-/**
- * Who may open the admin panel.
- *
- * Executives and moderators review content, applications and requests; admins and
- * super admins additionally publish, issue certificates and settle payments. A
- * plain member may not open the panel at all.
- *
- * This list is mirrored in `middleware.ts`, which enforces the same rule at the
- * edge with a real 307 redirect — see the comment there for why both exist.
- */
-export const ADMIN_PANEL_ROLES = ['SUPER_ADMIN', 'ADMIN', 'MODERATOR', 'EXECUTIVE'] as const
-
-export function canAccessAdminPanel(role: string) {
-  return (ADMIN_PANEL_ROLES as readonly string[]).includes(role)
-}
-
-export async function requireAdmin() {
-  const user = await requireUser()
-  if (!isAdmin(user.role)) throw new Error('FORBIDDEN')
-  return user
-}
-
-// ---------------------------------------------------------------------------
-// Page guards for the admin area.
-//
-// `requireAdmin()` throws, which is right for an API route (the caller turns it
-// into a JSON 403) but wrong for a page: throwing inside a page renders the
-// nearest error boundary, and because Next streams the response the visitor can
-// receive a `200` carrying an error panel. These two guards redirect to a page
-// the visitor *can* use instead, so the panel never shows a broken screen to a
-// signed-in member of staff, and no status code lies about what happened.
-//
-// `middleware.ts` applies the same rules at the edge, so in practice a request
-// like this is refused with a real 307 before these run. They are the second
-// line — defence in depth, not decoration.
-// ---------------------------------------------------------------------------
-
-/** Any staff role may open the panel; everyone else goes to their dashboard. */
-export async function requireStaffPage() {
+export async function requirePermissionPage(permission: Permission) {
   const user = await getCurrentUser()
   if (!user) redirect('/login')
-  if (!canAccessAdminPanel(user.role)) redirect('/dashboard')
-  return user
-}
-
-/** Admin-only pages: staff below admin are sent back to the panel overview. */
-export async function requireAdminPage() {
-  const user = await requireStaffPage()
-  if (!isAdmin(user.role)) redirect('/admin')
+  if (!hasPermission(user, permission)) redirect('/dashboard')
   return user
 }
 

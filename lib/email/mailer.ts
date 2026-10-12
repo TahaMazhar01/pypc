@@ -26,6 +26,10 @@ export function mailMode(): MailMode {
   return process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASSWORD ? 'smtp' : 'dev'
 }
 
+export function isLocalMailPreview() {
+  return process.env.PYPC_LOCAL_OUTPUT === 'admin-preview' && process.env.NODE_ENV !== 'production' && mailMode() === 'dev'
+}
+
 /**
  * True only when mail falls back to dev mode AND the deployment explicitly
  * opted in. Never true on a production deployment that has SMTP configured.
@@ -144,10 +148,13 @@ export function mailStatus() {
   const transport = mailMode()
   return {
     transport,
+    localPreview: isLocalMailPreview(),
     from: FROM_ADDRESS,
     devVisible: devMailVisible(),
     message:
-      transport === 'smtp'
+      isLocalMailPreview()
+        ? 'Local preview: outgoing email is disabled. Verification messages stay in the local outbox and are not sent to your inbox. New accounts remain pending; use the provided preview account to review the dashboard.'
+        : transport === 'smtp'
         ? 'Verification emails are delivered by the configured SMTP server.'
         : 'SMTP is not configured on this deployment. Messages are stored in the outbox and logged.' +
           (devMailVisible()

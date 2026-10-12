@@ -36,6 +36,7 @@ export function PasswordField({
   showMeter = true,
   id,
   autoFocus,
+  disabled = false,
   personalTerms
 }: {
   label: string
@@ -52,6 +53,7 @@ export function PasswordField({
   showMeter?: boolean
   id?: string
   autoFocus?: boolean
+  disabled?: boolean
   /** Name / email / organisation: the password may not restate any of them. */
   personalTerms?: (string | null | undefined)[]
 }) {
@@ -59,6 +61,7 @@ export function PasswordField({
   const fieldId = id ?? `password-${generatedId.replace(/[^a-zA-Z0-9-]/g, '')}`
   const helpId = `${fieldId}-help`
   const rulesId = `${fieldId}-rules`
+  const errorId = `${fieldId}-error`
   const [visible, setVisible] = useState(false)
   const [capsLock, setCapsLock] = useState(false)
 
@@ -84,7 +87,7 @@ export function PasswordField({
   return (
     <div>
       <label htmlFor={fieldId} className="mb-1.5 block text-sm font-semibold text-slate-800">
-        {displayContent(label)} {displayContent(required ? <span className="text-rose-600">*</span> : null)}
+        {displayContent(label)} {displayContent(required ? <span aria-hidden="true" className="text-rose-600">*</span> : null)}
       </label>
 
       <div className="relative">
@@ -93,9 +96,11 @@ export function PasswordField({
           id={fieldId}
           type={visible ? 'text' : 'password'}
           autoComplete={autoComplete}
+          disabled={disabled}
+          aria-required={required}
           placeholder={displayContent(placeholder)}
           aria-invalid={Boolean(error)}
-          aria-describedby={showChecklist ? rulesId : hint ? helpId : undefined}
+          aria-describedby={[error ? errorId : hint ? helpId : '', showChecklist ? rulesId : ''].filter(Boolean).join(' ') || undefined}
           autoFocus={autoFocus}
           onKeyUp={event => {
             try {
@@ -112,6 +117,7 @@ export function PasswordField({
 
         <button
           type="button"
+          disabled={disabled}
           onClick={() => setVisible(current => !current)}
           aria-label={displayContent(visible ? 'Hide password' : 'Show password')}
           aria-pressed={visible}
@@ -122,7 +128,7 @@ export function PasswordField({
       </div>
 
       {displayContent(error ? (
-        <p role="alert" className="mt-1.5 flex items-start gap-1.5 text-xs font-semibold text-rose-600">
+        <p id={errorId} role="alert" className="mt-1.5 flex items-start gap-1.5 text-xs font-semibold text-rose-600">
           <AlertTriangle size={13} className="mt-0.5 shrink-0" />
           <span>{displayContent(error)}</span>
         </p>

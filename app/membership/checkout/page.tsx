@@ -27,10 +27,11 @@ const ERROR_MESSAGES: Record<string, string> = {
 }
 
 export default async function CheckoutPage({
-  searchParams
+  searchParams: searchParamsPromise
 }: {
-  searchParams: { plan?: string; error?: string; cancelled?: string }
+  searchParams: Promise<{ plan?: string; error?: string; cancelled?: string }>
 }) {
+  const searchParams = await searchParamsPromise
   const [plans, user] = await Promise.all([
     prisma.membershipPlan.findMany({ where: { isActive: true }, orderBy: { sortOrder: 'asc' } }),
     getCurrentUser()

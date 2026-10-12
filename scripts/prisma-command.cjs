@@ -15,6 +15,14 @@ if (!sqlite && !/^(postgres(ql)?:|prisma:\/\/|prisma\+postgres:\/\/)/.test(url))
 let schema = 'prisma/schema.prisma';
 if (sqlite) {
   schema = 'prisma/schema.local.prisma';
+  if (process.argv[2] === 'db' && process.argv[3] === 'push') {
+    const raw = url.slice(5);
+    const databaseFile = path.isAbsolute(raw) ? raw : path.resolve('prisma', raw);
+    if (!fs.existsSync(databaseFile)) {
+      fs.mkdirSync(path.dirname(databaseFile), { recursive: true });
+      fs.closeSync(fs.openSync(databaseFile, 'wx'));
+    }
+  }
   fs.writeFileSync(schema, fs.readFileSync('prisma/schema.prisma', 'utf8').replace('provider = "postgresql"', 'provider = "sqlite"'));
 }
 const result = spawnSync(process.execPath, [require.resolve('prisma/build/index.js'), ...process.argv.slice(2), '--schema', path.resolve(schema)], { stdio: 'inherit', env: process.env });

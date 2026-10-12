@@ -1,10 +1,12 @@
+import { hasPermission, PAGE_PERMISSIONS } from '@/lib/permissions'
 
 import { displayContent } from '@/lib/display-content'
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { DashboardShell } from '@/components/dashboard/dashboard-shell'
-import { canAccessAdminPanel, getCurrentUser } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/auth'
 import { adminNav } from '@/lib/constants'
+import '@/components/admin/admin.css'
 
 export const metadata: Metadata = {
   title: { default: 'Admin Panel', template: '%s | PYPC Admin' },
@@ -18,20 +20,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   if (!user) redirect('/login?next=/admin')
 
-  // Executives and moderators may review content and applications; only admins
-  // and super admins may publish or issue certificates. A plain member is sent
-  // back to their own dashboard — and because `children` render in parallel with
-  // this layout in the App Router, the same rule is also enforced at the edge in
-  // middleware.ts, so an unauthorised request never reaches a 200 at all.
-  if (!canAccessAdminPanel(user.role)) {
+  // Every child page also checks its own resource permission before reading data.
+  if (!hasPermission(user, 'dashboard.read')) {
     redirect('/dashboard')
   }
 
   return (
     <DashboardShell
-      nav={adminNav}
+      nav={adminNav.filter(item => hasPermission(user, PAGE_PERMISSIONS[item.href]))}
       title="PYPC Admin Panel"
-      subtitle={`Signed in as ${user.firstName} ${user.lastName} · ${user.role.replace('_', ' ')}. Every action in this panel is written to the audit log.`}
+      subtitle={`Signed in as ${user.firstName} ${user.lastName} · ${user.role.replace('_', ' ')}. Access follows your assigned permissions.`}
       accent="slate"
     >
       {displayContent(children)}

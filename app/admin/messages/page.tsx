@@ -1,18 +1,18 @@
 
 import { displayContent } from '@/lib/display-content'
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
 import { Badge, Card } from '@/components/ui/card'
 import { prisma } from '@/lib/prisma'
-import { isAdmin, isStaff, requireUser } from '@/lib/auth'
+import { requirePermissionPage } from '@/lib/auth'
+import { hasPermission } from '@/lib/permissions'
+import { ReviewControls } from '@/components/admin/review-controls'
 import { formatDateTime, humanise } from '@/lib/utils'
 
 export const metadata: Metadata = { title: 'Messages' }
 export const dynamic = 'force-dynamic'
 
 export default async function AdminMessagesPage() {
-  const user = await requireUser()
-  if (!isStaff(user.role) && !isAdmin(user.role)) redirect('/dashboard')
+  const actor = await requirePermissionPage('messages.read')
 
   const messages = await prisma.contactMessage.findMany({
     orderBy: { createdAt: 'desc' },
@@ -31,7 +31,7 @@ export default async function AdminMessagesPage() {
         <h2 className="text-lg font-extrabold text-slate-900">Contact & support messages</h2>
         <p className="mt-1 text-sm text-slate-600">
           {displayContent(grouped.NEW.length)} new · {displayContent(grouped.IN_PROGRESS.length)} in progress · {displayContent(grouped.RESOLVED.length)}{displayContent(' ')}
-          resolved. Reply by email from the address shown, then update the status in the database record.
+          resolved. Use the review controls to update, resolve or archive a message. Archived messages can be reopened; no external reply is sent by these controls.
         </p>
       </Card>
 
@@ -68,6 +68,7 @@ export default async function AdminMessagesPage() {
                 <p className="mt-3 whitespace-pre-line rounded-xl bg-slate-50 p-4 text-sm leading-6 text-slate-600">
                   {displayContent(message.message)}
                 </p>
+                {hasPermission(actor, 'messages.manage') && <div className="mt-4"><ReviewControls kind="message" id={message.id} status={message.status} /></div>}
               </div>
             </div>
           </Card>

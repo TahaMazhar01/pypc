@@ -33,7 +33,7 @@ fi
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
 echo "Node $(node -v) detected"
 if [ "$NODE_MAJOR" -lt 20 ]; then
-  echo "Node 20 or newer is required (Next.js 14 + Prisma 5). Please upgrade."
+  echo "Node 20 or newer is required (Next.js 15 + Prisma 5). Please upgrade."
   exit 1
 fi
 
@@ -49,8 +49,8 @@ fi
 npm run db:generate
 npm run db:push -- --skip-generate
 
-step "Seeding demo accounts and content (safe to repeat)"
-npm run db:seed
+step "Checking optional demo seed (disabled by default)"
+node scripts/seed-local-demo.cjs
 
 if [ "$SKIP_BUILD" = "no" ]; then
   step "Building the production bundle"
@@ -62,7 +62,7 @@ if [ "$MODE" = "dev" ]; then
   exec npm run dev
 else
   step "Starting the site — http://localhost:3000"
-  echo "Open http://localhost:3000   ·   staff sign-in: admin@pypc.org.pk / Pypc@2026"
+  echo "Open http://localhost:3000 and sign in with your existing account."
   echo "Press Ctrl+C to stop."
   exec npm start
 fi

@@ -14,6 +14,9 @@ export async function PATCH(request: Request) {
   if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 })
 
   const body = await request.json().catch(() => null)
+  if (body && typeof body === 'object' && ['role', 'permissions', 'customRoleId', 'status', 'userId', 'emailVerifiedAt', 'sessionVersion'].some(key => Object.hasOwn(body, key))) {
+    return NextResponse.json({ error: 'Account access cannot be changed through the profile form.' }, { status: 422 })
+  }
   const parsed = profileSchemaWithPhone.safeParse(body)
 
   if (!parsed.success) {

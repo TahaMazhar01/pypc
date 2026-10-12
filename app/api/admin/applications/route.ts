@@ -1,24 +1,24 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { getCurrentUser, isStaff } from '@/lib/auth'
-import { notify, recordAudit } from '@/lib/audit'
+import { authorize, apiError, assertActor, auditMutation, readJson, transaction } from '@/lib/admin-api'
+import { notify } from '@/lib/audit'
 import { APPLICATION_STATUSES } from '@/lib/constants'
 
 const bodySchema = z.object({
   applicationId: z.string().min(1),
   status: z.enum([...APPLICATION_STATUSES] as [string, ...string[]]),
   adminNotes: z.string().max(2000).optional()
-})
+}).strict()
 
 /** PATCH /api/admin/applications — review decision on a member application. */
 export async function PATCH(request: Request) {
-  const staff = await getCurrentUser()
-  if (!staff || !isStaff(staff.role)) {
-    return NextResponse.json({ error: 'Staff access required.' }, { status: 403 })
-  }
+  let staff
+  try { staff = await authorize(request, 'applications.review') } catch (error) { return apiError(error) }
 
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null))
+  let body
+  try { body = await readJson(request) } catch (error) { return apiError(error) }
+  const parsed = bodySchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json({ error: 'applicationId and a valid status are required.' }, { status: 422 })
   }
@@ -32,7 +32,10 @@ export async function PATCH(request: Request) {
 
   if (!application) return NextResponse.json({ error: 'Application not found.' }, { status: 404 })
 
-  const updated = await prisma.application.update({
+  let updated
+  try { updated = await transaction(async tx => {
+    await assertActor(tx, staff, 'applications.review')
+    const result = await tx.application.update({
     where: { id: applicationId },
     data: {
       status,
@@ -40,7 +43,10 @@ export async function PATCH(request: Request) {
       reviewedById: staff.id,
       reviewedAt: new Date()
     }
-  })
+    })
+    await auditMutation(tx, staff, request, 'APPLICATION_STATUS_UPDATED', 'Application', applicationId, { status, reference: application.reference })
+    return result
+  }) } catch (error) { return apiError(error) }
 
   const itemTitle =
     application.programme?.title ?? application.opportunity?.title ?? application.type
@@ -53,16 +59,6 @@ export async function PATCH(request: Request) {
     }`,
     type: status === 'APPROVED' ? 'SUCCESS' : status === 'REJECTED' ? 'WARNING' : 'INFO',
     href: '/dashboard/applications'
-  })
-
-  await recordAudit({
-    actorId: staff.id,
-    actorEmail: staff.email,
-    action: 'APPLICATION_STATUS_UPDATED',
-    entityType: 'Application',
-    entityId: applicationId,
-    metadata: { status, reference: application.reference },
-    request
   })
 
   return NextResponse.json({ ok: true, application: updated })

@@ -1,3 +1,4 @@
+import { isSameOrigin, crossOriginResponse } from '@/lib/security/request'
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import {
@@ -11,6 +12,7 @@ import { passwordSchema, strongPasswordSchema } from '@/lib/validations'
 import { notify, recordAudit } from '@/lib/audit'
 
 export async function POST(request: Request) {
+  if (!isSameOrigin(request)) return crossOriginResponse()
   const user = await getCurrentUser()
   if (!user) return NextResponse.json({ error: 'Please sign in.' }, { status: 401 })
 

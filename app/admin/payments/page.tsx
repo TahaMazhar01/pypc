@@ -4,7 +4,9 @@ import type { Metadata } from 'next'
 import { Badge, Card, StatCard } from '@/components/ui/card'
 import { Icon } from '@/components/ui/icon'
 import { prisma } from '@/lib/prisma'
-import { requireAdminPage } from '@/lib/auth'
+import { requirePermissionPage } from '@/lib/auth'
+import { hasPermission } from '@/lib/permissions'
+import { PaymentControls } from '@/components/admin/payment-controls'
 import { formatCurrency, formatDateTime, humanise } from '@/lib/utils'
 import { getGatewayStatuses } from '@/lib/payments'
 
@@ -12,7 +14,7 @@ export const metadata: Metadata = { title: 'Payments' }
 export const dynamic = 'force-dynamic'
 
 export default async function AdminPaymentsPage() {
-  await requireAdminPage()
+  const actor = await requirePermissionPage('payments.read')
 
   const orders = await prisma.order.findMany({
     orderBy: { createdAt: 'desc' },
@@ -75,7 +77,7 @@ export default async function AdminPaymentsPage() {
       </Card>
 
       <Card className="overflow-x-auto p-0">
-        <table className="w-full min-w-[980px] text-left text-sm">
+        <table className="admin-table w-full min-w-[980px] text-left text-sm">
           <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-5 py-4">Reference</th>
@@ -85,6 +87,7 @@ export default async function AdminPaymentsPage() {
               <th className="px-5 py-4">Amount</th>
               <th className="px-5 py-4">Status</th>
               <th className="px-5 py-4">Dates</th>
+              <th className="px-5 py-4">Reconciliation</th>
             </tr>
           </thead>
           <tbody>
@@ -128,12 +131,13 @@ export default async function AdminPaymentsPage() {
                   <p>Created {displayContent(formatDateTime(order.createdAt))}</p>
                   {displayContent(order.paidAt ? <p className="mt-1">Paid {displayContent(formatDateTime(order.paidAt))}</p> : null)}
                 </td>
+                <td className="px-5 py-4">{order.status === 'PENDING' && hasPermission(actor, 'payments.settle') ? <PaymentControls reference={order.reference} amount={formatCurrency(order.amountMinor / 100, order.currency)} /> : <span className="text-xs text-slate-500">{order.status === 'PENDING' ? 'Read only' : 'Retained financial record'}</span>}</td>
               </tr>
             ))}
 
             {displayContent(!orders.length ? (
               <tr>
-                <td colSpan={7} className="px-5 py-10 text-center text-sm text-slate-500">
+                <td colSpan={8} className="px-5 py-10 text-center text-sm text-slate-500">
                   No orders recorded yet.
                 </td>
               </tr>

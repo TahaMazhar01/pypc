@@ -2,20 +2,24 @@
 import { displayContent } from '@/lib/display-content'
 import type { Metadata } from 'next'
 import { Badge, Card } from '@/components/ui/card'
-import { UserControls } from '@/components/admin/admin-controls'
+import { MemberControls } from '@/components/admin/member-controls'
 import { prisma } from '@/lib/prisma'
-import { requireAdminPage } from '@/lib/auth'
+import { requirePermissionPage } from '@/lib/auth'
+import { hasPermission } from '@/lib/permissions'
 import { formatDate, formatDateTime, humanise } from '@/lib/utils'
+import { USER_ROLES } from '@/lib/constants'
 
 export const metadata: Metadata = { title: 'Members' }
 export const dynamic = 'force-dynamic'
 
 export default async function AdminUsersPage({
-  searchParams
+  searchParams: searchParamsPromise
 }: {
-  searchParams: { q?: string; role?: string }
+  searchParams: Promise<{ q?: string; role?: string }>
 }) {
-  await requireAdminPage()
+  const searchParams = await searchParamsPromise
+  const actor = await requirePermissionPage('users.read')
+  const customRoles = await prisma.role.findMany({ select: { id: true, name: true }, orderBy: { name: 'asc' } })
 
   const q = searchParams.q?.trim()
   const role = searchParams.role
@@ -68,7 +72,7 @@ export default async function AdminUsersPage({
             className="focus-ring h-11 rounded-lg border border-slate-200 px-3 text-sm"
           >
             <option value="">All roles</option>
-            {['MEMBER', 'EXECUTIVE', 'MODERATOR', 'ADMIN', 'SUPER_ADMIN'].map(item => (
+            {[...USER_ROLES, 'CUSTOM'].map(item => (
               <option key={item} value={item}>
                 {displayContent(humanise(item))}
               </option>
@@ -84,7 +88,7 @@ export default async function AdminUsersPage({
       </Card>
 
       <Card className="overflow-x-auto p-0">
-        <table className="w-full min-w-[1000px] text-left text-sm">
+        <table className="admin-user-table w-full min-w-[780px] text-left text-sm">
           <thead className="border-b border-slate-100 bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-5 py-4">Member</th>
@@ -148,7 +152,7 @@ export default async function AdminUsersPage({
                 </td>
 
                 <td className="px-5 py-4">
-                  <UserControls userId={user.id} role={user.role} status={user.status} />
+                  {hasPermission(actor, 'users.manage') && (user.role !== 'SUPER_ADMIN' || actor.role === 'SUPER_ADMIN') ? <MemberControls user={{ id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, city: user.city, province: user.province, institution: user.institution, profession: user.profession, role: user.role, status: user.status, customRoleId: user.customRoleId }} roles={customRoles} superAdmin={actor.role === 'SUPER_ADMIN'} self={actor.id === user.id} /> : <span className="text-xs text-slate-500">Protected / read only</span>}
                 </td>
               </tr>
             ))}

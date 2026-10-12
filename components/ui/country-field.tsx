@@ -2,7 +2,7 @@
 
 
 import { displayContent } from '@/lib/display-content'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { countries, type Country } from '@/lib/data/countries'
@@ -60,6 +60,8 @@ export function CountryField({
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const [highlight, setHighlight] = useState(0)
+  const listId = useId()
+  const buttonRef = useRef<HTMLButtonElement | null>(null)
   const containerRef = useRef<HTMLDivElement | null>(null)
   const searchRef = useRef<HTMLInputElement | null>(null)
   const listRef = useRef<HTMLUListElement | null>(null)
@@ -78,7 +80,7 @@ export function CountryField({
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) setOpen(false)
     }
     function onKey(event: KeyboardEvent) {
-      if (event.key === 'Escape') setOpen(false)
+      if (event.key === 'Escape') { setOpen(false); buttonRef.current?.focus() }
     }
 
     document.addEventListener('mousedown', onPointerDown)
@@ -106,6 +108,7 @@ export function CountryField({
   function choose(country: Country) {
     onChange(country.iso2)
     setOpen(false)
+    buttonRef.current?.focus()
   }
 
   function onKeyDown(event: React.KeyboardEvent) {
@@ -122,8 +125,10 @@ export function CountryField({
       const country = results[highlight]
       if (country) choose(country)
     } else if (event.key === 'Home') {
+      event.preventDefault()
       setHighlight(0)
     } else if (event.key === 'End') {
+      event.preventDefault()
       setHighlight(results.length - 1)
     }
   }
@@ -133,12 +138,14 @@ export function CountryField({
       <input type="hidden" name="countryIso" value={value} readOnly />
 
       <button
+        ref={buttonRef}
         type="button"
         id={id}
         disabled={disabled}
         onClick={() => setOpen(current => !current)}
         onKeyDown={onKeyDown}
         aria-haspopup="listbox"
+        aria-controls={open ? listId : undefined}
         aria-expanded={open}
         aria-label={displayContent(label ?? placeholder)}
         aria-describedby={ariaDescribedBy}
@@ -169,6 +176,11 @@ export function CountryField({
               onKeyDown={onKeyDown}
               placeholder="Search by country, code or +dial…"
               aria-label="Search countries"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={open}
+              aria-controls={listId}
+              aria-activedescendant={results[highlight] ? `${listId}-${results[highlight].iso2}` : undefined}
               className="h-8 w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
             />
             {displayContent(query ? (
@@ -183,7 +195,7 @@ export function CountryField({
             ) : null)}
           </div>
 
-          <ul ref={listRef} role="listbox" className="max-h-64 overflow-y-auto py-1">
+          <ul id={listId} ref={listRef} role="listbox" aria-label={label ?? placeholder} className="max-h-64 overflow-y-auto py-1">
             {displayContent(results.length === 0 ? (
               <li className="px-4 py-6 text-center text-sm text-slate-500">
                 No matching country. <button type="button" onClick={() => setQuery('')} className="font-bold text-primary">Clear search</button>
@@ -192,7 +204,7 @@ export function CountryField({
               results.map((country, index) => {
                 const isSelected = country.iso2 === selected?.iso2
                 return (
-                  <li key={country.iso2} role="option" aria-selected={isSelected}>
+                  <li id={`${listId}-${country.iso2}`} key={country.iso2} role="option" aria-selected={isSelected}>
                     <button
                       type="button"
                       onMouseEnter={() => setHighlight(index)}

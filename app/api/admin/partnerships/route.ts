@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
-import { getCurrentUser, isStaff } from '@/lib/auth'
-import { recordAudit } from '@/lib/audit'
+import { authorize, apiError, assertActor, auditMutation, readJson, transaction } from '@/lib/admin-api'
 import { PARTNERSHIP_STATUSES } from '@/lib/validations'
 import { PARTNERSHIP_STATUS_LABELS } from '@/lib/partnerships'
 
@@ -10,7 +9,7 @@ const bodySchema = z.object({
   requestId: z.string().min(1),
   status: z.enum(PARTNERSHIP_STATUSES),
   adminNotes: z.string().max(2000).optional()
-})
+}).strict()
 
 /**
  * PATCH /api/admin/partnerships — the secretariat's decision on a partnership
@@ -18,12 +17,12 @@ const bodySchema = z.object({
  * every step of the MoU process leaves a record naming who moved it.
  */
 export async function PATCH(request: Request) {
-  const staff = await getCurrentUser()
-  if (!staff || !isStaff(staff.role)) {
-    return NextResponse.json({ error: 'Staff access required.' }, { status: 403 })
-  }
+  let staff
+  try { staff = await authorize(request, 'partnerships.review') } catch (error) { return apiError(error) }
 
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null))
+  let body
+  try { body = await readJson(request) } catch (error) { return apiError(error) }
+  const parsed = bodySchema.safeParse(body)
   if (!parsed.success) {
     return NextResponse.json(
       { error: 'A requestId and a valid status are required.' },
@@ -45,30 +44,21 @@ export async function PATCH(request: Request) {
     })
   }
 
-  const updated = await prisma.partnershipRequest.update({
+  let updated
+  try { updated = await transaction(async tx => {
+    await assertActor(tx, staff, 'partnerships.review')
+    const result = await tx.partnershipRequest.update({
     where: { id: requestId },
     data: {
       status,
-      adminNotes: adminNotes?.trim() ? adminNotes.trim() : existing.adminNotes,
+      adminNotes: adminNotes === undefined ? existing.adminNotes : adminNotes.trim(),
       reviewedById: staff.id,
       reviewedAt: new Date()
     }
-  })
-
-  await recordAudit({
-    actorId: staff.id,
-    actorEmail: staff.email,
-    action: 'PARTNERSHIP_STATUS_CHANGED',
-    entityType: 'PartnershipRequest',
-    entityId: updated.id,
-    metadata: {
-      reference: updated.reference,
-      institution: updated.institutionName,
-      from: existing.status,
-      to: status
-    },
-    request
-  })
+    })
+    await auditMutation(tx, staff, request, 'PARTNERSHIP_STATUS_CHANGED', 'PartnershipRequest', result.id, { reference: result.reference, from: existing.status, to: status })
+    return result
+  }) } catch (error) { return apiError(error) }
 
   return NextResponse.json({
     ok: true,

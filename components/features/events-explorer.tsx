@@ -17,6 +17,7 @@ export type EventCard = {
   fullName: string
   summary: string
   image: string
+  imageAlt?: string
   href: string
   location: string
   date: string
@@ -77,8 +78,9 @@ export function EventsExplorer({ events }: { events: EventCard[] }) {
                 <div className="relative h-44 overflow-hidden">
                   
                   <Image
+                  unoptimized={event.image.startsWith('/api/media/')}
                     src={event.image}
-                    alt={displayContent(getSitePhoto(event.image)?.alt ?? 'Illustrative photograph')}
+                    alt={displayContent(event.imageAlt ?? getSitePhoto(event.image)?.alt ?? 'Illustrative photograph')}
                     fill
                     sizes="(max-width: 768px) 100vw, 33vw"
                     className="object-cover transition duration-700 hover:scale-105"

@@ -1,9 +1,11 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getCurrentUser, isAdmin } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/auth'
+import { hasPermission } from '@/lib/permissions'
+import { authorize, apiError, assertActor, auditMutation, readJson, transaction } from '@/lib/admin-api'
 import { certificateIssueSchema } from '@/lib/validations'
 import { generateCertificateCode } from '@/lib/certificates'
-import { notify, recordAudit } from '@/lib/audit'
+import { notify } from '@/lib/audit'
 
 /** GET — certificates belonging to the signed-in member (admins: all). */
 export async function GET(request: Request) {
@@ -12,9 +14,10 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url)
   const scope = url.searchParams.get('scope')
+  if (scope === 'all' && !hasPermission(user, 'certificates.read')) return NextResponse.json({ error: 'Certificate directory access required.' }, { status: 403 })
 
   const where =
-    scope === 'all' && isAdmin(user.role)
+    scope === 'all' && hasPermission(user, 'certificates.read')
       ? {}
       : { userId: user.id }
 
@@ -32,14 +35,12 @@ export async function GET(request: Request) {
 
 /** POST — issue a certificate. ADMIN / SUPER_ADMIN only. */
 export async function POST(request: Request) {
-  const user = await getCurrentUser()
-  if (!user || !isAdmin(user.role)) {
-    return NextResponse.json({ error: 'Admin access required.' }, { status: 403 })
-  }
+  let user
+  try { user = await authorize(request, 'certificates.issue') } catch (error) { return apiError(error) }
 
   let body: unknown
   try {
-    body = await request.json()
+    body = await readJson(request)
   } catch {
     return NextResponse.json({ error: 'Invalid request body.' }, { status: 400 })
   }
@@ -63,7 +64,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const certificate = await prisma.certificate.create({
+    const certificate = await transaction(async tx => {
+      await assertActor(tx, user, 'certificates.issue')
+      const created = await tx.certificate.create({
       data: {
         code,
         title: data.title,
@@ -77,6 +80,9 @@ export async function POST(request: Request) {
         issueDate: data.issueDate ? new Date(data.issueDate) : new Date(),
         status: 'VALID'
       }
+      })
+      await auditMutation(tx, user, request, 'CERTIFICATE_ISSUED', 'Certificate', created.id, { code })
+      return created
     })
 
     if (certificate.userId) {
@@ -88,16 +94,6 @@ export async function POST(request: Request) {
         href: '/dashboard/certificates'
       })
     }
-
-    await recordAudit({
-      actorId: user.id,
-      actorEmail: user.email,
-      action: 'CERTIFICATE_ISSUED',
-      entityType: 'Certificate',
-      entityId: certificate.id,
-      metadata: { code, recipient: certificate.recipientName },
-      request
-    })
 
     return NextResponse.json({ ok: true, certificate }, { status: 201 })
   } catch (error) {

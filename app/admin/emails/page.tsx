@@ -1,12 +1,11 @@
 
 import { displayContent } from '@/lib/display-content'
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { AlertTriangle, CheckCircle2, Clock, Mail, MailWarning, Send } from 'lucide-react'
 import { Badge, Card } from '@/components/ui/card'
 import { prisma } from '@/lib/prisma'
-import { isStaff, requireUser } from '@/lib/auth'
+import { requirePermissionPage } from '@/lib/auth'
 import { mailStatus } from '@/lib/email/mailer'
 import { formatDateTime, humanise } from '@/lib/utils'
 
@@ -20,12 +19,11 @@ export const dynamic = 'force-dynamic'
  * staff clicking a button, so nobody can activate an account they do not own.
  */
 export default async function AdminEmailsPage() {
-  const staff = await requireUser()
-  if (!isStaff(staff.role)) redirect('/dashboard')
+  await requirePermissionPage('emails.read')
 
   const [outbox, pending, stats] = await Promise.all([
     prisma.emailOutbox
-      .findMany({ orderBy: { createdAt: 'desc' }, take: 30 })
+      .findMany({ orderBy: { createdAt: 'desc' }, take: 30, select: { id: true, to: true, subject: true, status: true, transport: true, createdAt: true, error: true } })
       .catch(() => []),
     prisma.user
       .findMany({
@@ -204,25 +202,27 @@ export default async function AdminEmailsPage() {
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="flex min-w-0 items-center gap-2 text-sm font-bold text-slate-800">
                     <Mail size={14} className="shrink-0 text-slate-500" />
-                    <span className="truncate">{displayContent(message.subject)}</span>
+                    <span className="truncate">{displayContent(/verification|password|sign-in|code/i.test(message.subject) ? 'Authentication email (contents withheld)' : message.subject)}</span>
                   </span>
                   <span className="flex items-center gap-2">
                     <Badge
                       tone={
-                        message.status === 'SENT'
+                        message.transport === 'dev' && message.status === 'SENT'
+                          ? 'warning'
+                          : message.status === 'SENT'
                           ? 'success'
                           : message.status === 'FAILED'
                             ? 'danger'
                             : 'info'
                       }
                     >
-                      {displayContent(humanise(message.status))} · {displayContent(message.transport)}
+                      {message.transport === 'dev' && message.status === 'SENT' ? 'Captured locally · Not emailed' : <>{displayContent(humanise(message.status))} · {displayContent(message.transport)}</>}
                     </Badge>
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-slate-500">
                   To {displayContent(message.to)} · {displayContent(formatDateTime(message.createdAt))}
-                  {displayContent(message.error ? ` · error: ${message.error.slice(0, 90)}` : '')}
+                  {displayContent(message.error ? ' · Delivery failed; inspect restricted server diagnostics.' : '')}
                 </p>
               </li>
             ))}

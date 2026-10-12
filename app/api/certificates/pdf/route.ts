@@ -1,9 +1,10 @@
+import { hasPermission } from '@/lib/permissions'
 import { NextResponse } from 'next/server'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { prisma } from '@/lib/prisma'
 import { normaliseCertificateCode, verificationUrl } from '@/lib/certificates'
 import { recordAudit } from '@/lib/audit'
-import { getCurrentUser, isAdmin } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
 
   const viewer = await getCurrentUser()
   const isOwner = viewer && certificate.user?.id === viewer.id
-  const isStaffViewer = viewer ? isAdmin(viewer.role) : false
+  const isStaffViewer = viewer ? hasPermission(viewer, 'certificates.read') : false
 
   if (!isOwner && !isStaffViewer && certificate.status !== 'VALID') {
     return NextResponse.json(

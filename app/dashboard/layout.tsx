@@ -1,9 +1,10 @@
+import { hasPermission } from '@/lib/permissions'
 
 import { displayContent } from '@/lib/display-content'
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { DashboardShell } from '@/components/dashboard/dashboard-shell'
-import { getCurrentUser, isAdmin } from '@/lib/auth'
+import { getCurrentUser } from '@/lib/auth'
 import { dashboardNav } from '@/lib/constants'
 
 export const metadata: Metadata = {
@@ -18,7 +19,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   if (!user) redirect('/login?next=/dashboard')
 
   const nav = [...dashboardNav]
-  if (isAdmin(user.role)) {
+  if (hasPermission(user, 'dashboard.read')) {
     nav.push({ label: 'Admin Panel', href: '/admin', icon: 'ShieldCheck' })
   }
 

@@ -1,25 +1,25 @@
 
 import { displayContent } from '@/lib/display-content'
 import type { Metadata } from 'next'
-import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { FileText, Globe2 } from 'lucide-react'
 import { Badge, Card } from '@/components/ui/card'
-import { VisaLetterControls } from '@/components/admin/visa-letter-controls'
+import { ReviewControls } from '@/components/admin/review-controls'
 import { prisma } from '@/lib/prisma'
-import { isStaff, requireUser } from '@/lib/auth'
+import { requirePermissionPage } from '@/lib/auth'
+import { hasPermission } from '@/lib/permissions'
 import { formatDate, humanise } from '@/lib/utils'
 
 export const metadata: Metadata = { title: 'Visa letters' }
 export const dynamic = 'force-dynamic'
 
 export default async function AdminVisaLettersPage({
-  searchParams
+  searchParams: searchParamsPromise
 }: {
-  searchParams: { status?: string }
+  searchParams: Promise<{ status?: string }>
 }) {
-  const staff = await requireUser()
-  if (!isStaff(staff.role)) redirect('/dashboard')
+  const searchParams = await searchParamsPromise
+  const actor = await requirePermissionPage('visa.read')
 
   const status = searchParams.status
 
@@ -141,11 +141,11 @@ export default async function AdminVisaLettersPage({
                 </div>
               </div>
 
-              <VisaLetterControls
-                requestId={request.id}
+              {hasPermission(actor, 'visa.review') ? (<ReviewControls kind="visa"
+                id={request.id}
                 status={request.status}
-                adminNotes={request.adminNotes}
-              />
+                notes={request.adminNotes}
+              />) : null}
             </Card>
           ))}
         </div>

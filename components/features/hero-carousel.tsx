@@ -11,6 +11,7 @@ import { cn } from '@/lib/utils'
 
 export type CarouselSlide = {
   src: string
+  alt?: string
   title: string
   caption: string
   href?: string
@@ -49,7 +50,8 @@ export function HeroCarousel({
     return () => window.clearInterval(timer)
   }, [paused, reduced, next, interval])
 
-  const active = slides[index]
+  if (!slides.length) return null
+  const active = slides[index % slides.length]
 
   if (variant === 'backdrop') {
     return (
@@ -61,6 +63,7 @@ export function HeroCarousel({
       >
         {slides.map((slide, slideIndex) => (
           <Image
+                unoptimized={slide.src.startsWith('/api/media/')}
             key={slide.src}
             src={slide.src}
             alt=""
@@ -104,8 +107,9 @@ export function HeroCarousel({
             )}
           >
             <Image
+                unoptimized={slide.src.startsWith('/api/media/')}
               src={slide.src}
-              alt={displayContent(getSitePhoto(slide.src)?.alt ?? 'Illustrative photograph')}
+              alt={displayContent(slide.alt ?? getSitePhoto(slide.src)?.alt ?? 'Illustrative photograph')}
               fill
               priority={slideIndex === 0}
               sizes="(max-width: 1024px) 100vw, 1200px"

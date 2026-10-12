@@ -1,3 +1,5 @@
+> Authentication and content management were updated. Read [the administration setup and security guide](docs/ADMIN-SECURITY.md) before using the setup/seed instructions below. No default administrator password is provided. Existing databases require the additive migration; production deployment remains an operator action.
+
 # PostgreSQL deployment
 
 The production Prisma schema now targets PostgreSQL. See [the migration and deployment guide](docs/POSTGRESQL.md). Local SQLite remains available through the npm database commands until a hosted connection is configured.
@@ -6,7 +8,7 @@ The production Prisma schema now targets PostgreSQL. See [the migration and depl
 
 A complete, runnable web platform for the **Pakistan Youth Parliamentary Council**: public website, member accounts, membership payments (JazzCash / Easypaisa / Stripe adapters), programmes, events, opportunities, applications, QR-verified certificates, an AI assistant and a full admin panel.
 
-Built with **Next.js 14 (App Router) · TypeScript · Tailwind CSS · three.js · Framer Motion · Prisma · SQLite (dev) → PostgreSQL/Supabase (prod) · JWT cookie sessions · pdf-lib + QR**.
+Built with **Next.js 15.5.27 (App Router) · React 19 · TypeScript · Tailwind CSS · three.js · Framer Motion · Prisma · SQLite (dev) → PostgreSQL/Supabase (prod) · Revocable cookie sessions · pdf-lib + QR**.
 
 ---
 
@@ -218,9 +220,9 @@ competing with it — and those colours are contrast-audited like everything els
 cd pypc-website
 npm install                 # already run in this workspace
 cp .env.example .env        # already created — edit it for production
-npx prisma generate
-npx prisma db push          # creates prisma/dev.db
-npm run db:seed             # membership plans, programmes, events, demo users
+npm run db:generate
+npm run db:push             # prepares the configured local SQLite database
+node scripts/seed-local-demo.cjs # skipped by default; isolated demo opt-in only
 npm run dev                 # http://localhost:3000
 ```
 
@@ -256,11 +258,11 @@ Other useful commands:
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Super Admin | `admin@pypc.org.pk` | `Pypc@2026` |
-| Executive | `executive@pypc.org.pk` | `Pypc@2026` |
-| Member (Ayesha Khan) | `member@example.com` | `Pypc@2026` |
+| Super Admin | `admin@pypc.org.pk` | `<operator-supplied demo password>` |
+| Executive | `executive@pypc.org.pk` | `<operator-supplied demo password>` |
+| Member (Ayesha Khan) | `member@example.com` | `<operator-supplied demo password>` |
 
-**Change all three before any public launch** (Admin → Members, or `npm run db:seed` with new values).
+No default staff password is supplied. Preserve existing accounts; demo seeding requires an isolated SQLite database, ALLOW_DEMO_SEED=true and a unique DEMO_SEED_PASSWORD (16–72 bytes).
 
 These seeded accounts are created **already verified** (`emailVerifiedAt` set) so the demo keeps working.
 *New* signups are not: they stay `PENDING` until the six-digit code from their inbox is entered on
@@ -693,7 +695,7 @@ code is also shown on the verify screen, clearly labelled as a development aid.
 - The AI assistant **never invents** fees, dates, names or policies: it answers from `lib/ai/knowledge-base.ts` and escalates unknown or sensitive questions to the secretariat (recorded as `AI_ESCALATION_REQUESTED`).
 - The assistant answers in the language it is asked in — **English, Urdu script or Roman Urdu** (`lib/ai/language.ts`) — and quotes **live** database figures (`lib/ai/live-data.ts`): current prices, published events, open opportunities, valid certificates, visa-letter counts. Streaming answers arrive as Server-Sent Events, so the widget shows the language badge and live figures first, then the text builds up. `npm run check:ai` proves all of it (58 assertions).
 - Edge middleware only checks cookie presence (Prisma cannot run on the edge); full authorisation is enforced server-side in the layouts and every API route.
-- `npm run typecheck` and `npm run build` both pass (Next 14.2.35). All 31 public routes were swept against the production build
+- Historical baseline before the administration upgrade: `npm run typecheck` and `npm run build` passed on Next 14.2.35. All 31 public routes were swept against that production build
   (HTTP 200, WebGL canvases present where expected) and all five protected routes redirect
   anonymous visitors to sign-in; the upload pipeline was verified
   end-to-end (owner 200 / anonymous 401 / staff 200, spoofed "PDF" rejected with 422, foreign attachments

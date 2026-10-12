@@ -1,4 +1,5 @@
 
+import Link from 'next/link'
 import { displayContent } from '@/lib/display-content'
 import type { Metadata } from 'next'
 import { Building2, Mail, Phone, Users } from 'lucide-react'
@@ -38,18 +39,11 @@ export default async function AdminPartnershipsPage() {
   return (
     <div className="space-y-6">
       <Card>
-        <h2 className="text-lg font-extrabold text-slate-900">Partnership and MoU requests</h2>
-        <p className="mt-1 text-sm text-slate-600">
-          {displayContent(open.length)} open · {displayContent(requests.length)} total. Every status change is written to the audit log with
-          your name on it. The process the institution is reading is published on{displayContent(' ')}
-          <span className="font-semibold">/partnerships</span>, keep replies inside those turnarounds.
-        </p>
-        {requests.length === 0 && (
-          <p className="mt-3 rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
-            No request has been submitted yet. The public form is live at /partnerships; anything sent from
-            it appears here immediately.
-          </p>
-        )}
+
+        <h2 className="text-lg font-extrabold text-slate-900">Requests to work with PYPC</h2>
+        <p className="mt-2 text-sm leading-6 text-slate-600">Universities, organisations and sponsors submit proposals through the website. Review their request here, contact them and record your decision.</p>
+        <div className="mt-4 flex flex-wrap gap-3"><Badge tone="warning">{open.length} awaiting a decision</Badge><Badge tone="info">{requests.length} total requests</Badge></div>
+        {requests.length === 0 && <div className="mt-5 rounded-xl bg-slate-50 p-5 text-sm text-slate-600"><h3 className="font-bold text-primary">No partnership requests yet</h3><p className="mt-2 leading-6">There is nothing to review right now. When an organisation sends a proposal, it will appear here with their contact details.</p><Link className="admin-action mt-4" href="/partnerships">View the public partnership form</Link></div>}
       </Card>
 
       <div className="space-y-4">

@@ -5,6 +5,7 @@ import { displayContent } from '@/lib/display-content'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { AdminPageHelp } from '@/components/admin/admin-page-help'
 import { Menu, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Icon } from '@/components/ui/icon'
@@ -39,9 +40,9 @@ export function DashboardShell({
         <p className="admin-sidebar-caption">Workspace</p>
         <button className="admin-mobile-menu" aria-expanded={open} aria-controls="admin-navigation" onClick={() => setOpen(value => !value)}>{nav.find(item => isActive(item.href))?.label ?? 'Menu'}{open ? <X size={19} /> : <Menu size={19} />}</button>
         <nav id="admin-navigation" aria-label="Dashboard navigation">{nav.map(item => <Link key={item.href} href={item.href} aria-current={isActive(item.href) ? 'page' : undefined} onClick={() => setOpen(false)}><Icon name={item.icon} size={18} /><span>{item.label}</span></Link>)}</nav>
-        <p className="admin-sidebar-note">Changes are recorded in the audit trail. Access follows your assigned permissions.</p>
+        <p className="admin-sidebar-note">Choose a section to get started. Use “How to use this page” for a simple guide.</p>
       </aside>
-      <div className="admin-main"><header className="admin-page-heading"><p>Pakistan Youth Parliamentary Council</p><h1>{nav.find(item => isActive(item.href))?.label ?? title}</h1><p>{subtitle}</p></header>{children}</div>
+      <div className="admin-main"><header className="admin-page-heading"><p>Pakistan Youth Parliamentary Council</p><h1>{nav.find(item => isActive(item.href))?.label ?? title}</h1><p>{subtitle}</p><AdminPageHelp key={pathname} pathname={pathname} /></header>{children}</div>
     </div>
   </div>
 

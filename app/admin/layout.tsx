@@ -29,7 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <DashboardShell
       nav={adminNav.filter(item => hasPermission(user, PAGE_PERMISSIONS[item.href]))}
       title="PYPC Admin Panel"
-      subtitle={`Signed in as ${user.firstName} ${user.lastName} · ${user.role.replace('_', ' ')}. Access follows your assigned permissions.`}
+      subtitle={`Signed in as ${user.firstName} ${user.lastName} · ${user.role.replace('_', ' ')}.`}
       accent="slate"
     >
       {displayContent(children)}

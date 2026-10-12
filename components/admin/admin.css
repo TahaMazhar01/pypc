@@ -95,3 +95,9 @@ body:has(.admin-workspace) > :is(.site-header,.modern-footer), body:has(.admin-w
   .admin-user-table td:nth-child(4)::before { content: 'Activity'; }
   .admin-user-table td:nth-child(5)::before { content: 'Last sign in'; }
 }
+
+.admin-role-table { min-width: 570px; }
+.admin-role-table :is(th,td) { padding: 16px 12px; border-bottom: 1px solid #e2e9df; vertical-align: middle; }
+.admin-role-table thead { background: #f1f5ee; color: #536651; }
+.admin-role-table th { font-weight: 650; }
+.admin-role-table tbody tr:hover { background: #fafcf8; }
